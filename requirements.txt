@@ -1,0 +1,9 @@
+pydantic>=2
+PyYAML
+pytest
+streamlit
+anthropic
+google-genai
+openai
+python-dotenv
+-e .

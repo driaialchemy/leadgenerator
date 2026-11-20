@@ -1,0 +1,8 @@
+{
+  "prospect_id": "B2B-004",
+  "claim_ids": ["VP-B2B-01", "VP-B2B-03"],
+  "evidence": [
+    {"claim_id": "VP-B2B-01", "quote": "Wants help desk coverage"},
+    {"claim_id": "VP-B2B-03", "quote": "Two IT staff overwhelmed"}
+  ]
+}

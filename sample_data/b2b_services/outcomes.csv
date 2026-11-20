@@ -1,0 +1,9 @@
+record_id,profile_id,sent_on,furthest_stage,deal_value
+OUT-B2B-001,b2b_services,2026-01-15,won,18000
+OUT-B2B-002,b2b_services,2026-02-03,won,24000
+OUT-B2B-003,b2b_services,2026-02-20,lost_after_meeting,
+OUT-B2B-004,b2b_services,2026-03-04,meeting,
+OUT-B2B-005,b2b_services,2026-03-18,replied,
+OUT-B2B-006,b2b_services,2026-04-02,replied,
+OUT-B2B-007,b2b_services,2026-04-22,sent,
+OUT-B2B-008,b2b_services,2026-05-11,sent,

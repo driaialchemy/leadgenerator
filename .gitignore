@@ -1,0 +1,12 @@
+.env
+*.env
+secrets/
+.venv/
+__pycache__/
+.pytest_cache/
+runs/*
+!runs/.gitkeep
+outbox/*
+!outbox/.gitkeep
+assets/source/
+*.egg-info/

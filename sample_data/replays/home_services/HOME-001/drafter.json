@@ -1,0 +1,7 @@
+{
+  "prospect_id": "HOME-001",
+  "subject_id": "SUB-HOME-02",
+  "claim_ids": ["VP-HOME-01", "VP-HOME-02"],
+  "hook": "You mentioned an afternoon struggle and wanting to compare repair and replacement.",
+  "bridge": "A same-week look and a written comparison can come before any work:"
+}

@@ -1,0 +1,64 @@
+# Fictional profile. Industry content stays in this file.
+profile_id: home_services
+display_name: Desert Peak Heating & Cooling
+sender:
+  name: Avery Cole
+  company: Desert Peak Heating & Cooling
+  postal_address: "200 Example Way, Phoenix, AZ 85000"
+opt_out_line: If you would rather not hear from us, reply stop and we will remove you.
+attributes:
+  property_type: str
+  home_age_years: int
+  system_age_years: int
+scoring_rules:
+  - field: system_age_years
+    type: range
+    min: 12
+    points: 35
+  - field: property_type
+    type: in
+    values: [single_family, townhome]
+    points: 15
+  - field: home_age_years
+    type: range
+    min: 15
+    points: 10
+  - field: source
+    type: in
+    values: [referral, web_form]
+    points: 25
+  - field: last_engaged_days
+    type: range
+    max: 14
+    points: 15
+approved_claims:
+  VP-HOME-01: Same-week system evaluations
+  VP-HOME-02: A written repair-versus-replace comparison before any work
+  VP-HOME-03: Licensed, background-checked technicians
+  VP-HOME-04: Maintenance plans with seasonal tune-ups
+approved_subjects:
+  SUB-HOME-01: "Your cooling system, {{contact_first_name}}"
+  SUB-HOME-02: Following up on your HVAC question
+cta: Reply with a time this week for a system evaluation.
+buyer_persona: "You are the homeowner. You delete a generic message. You reply when the message shows someone read your house."
+note_checks:
+  - id: pricing_question
+    phrases: [pricing, financing, quote, price]
+    message: "Prospect asked about price. A person answers this; the AI may not quote."
+  - id: system_age_conflict
+    phrases: ["brand new", "installed last year"]
+    attribute: system_age_years
+    flag_when:
+      min: 3
+    message: "Notes say the system is new, but system_age_years disagrees. Confirm before relying on the score."
+banned_phrases:
+  - discount
+  - "% off"
+  - free
+  - guarantee
+  - risk-free
+  - limited time
+  - act now
+  - "$"
+  - "Re:"
+  - "Fwd:"

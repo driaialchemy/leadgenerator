@@ -1,0 +1,15 @@
+# draft_threshold is a separate gate from the tier labels.
+# hot: score >= hot_min. warm: warm_min <= score < hot_min. cold: score < warm_min.
+# Required shape: 0 <= warm_min < hot_min <= 100 and 0 <= draft_threshold <= 100.
+draft_threshold: 60
+tiers:
+  hot_min: 70
+  warm_min: 40
+max_revisions: 1
+evaluator_pass_score: 4
+max_ai_words: 90
+max_claims: 2
+exclusions:
+  do_not_contact_is: true
+  consent_status_is:
+    - "none"

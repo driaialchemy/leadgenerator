@@ -1,0 +1,7 @@
+{
+  "prospect_id": "HOME-004",
+  "subject_id": "SUB-HOME-02",
+  "claim_ids": ["VP-HOME-01", "VP-HOME-04"],
+  "hook": "You mentioned a tune-up and a unit that was installed recently.",
+  "bridge": "A seasonal tune-up plan can be discussed before any work:"
+}

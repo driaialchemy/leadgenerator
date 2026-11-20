@@ -1,0 +1,7 @@
+prospect_id,profile_id,contact_name,organization,email,region,source,last_engaged_days,consent_status,do_not_contact,notes,property_type,home_age_years,system_age_years
+HOME-001,home_services,Luis Ramirez,,luis.ramirez@example.com,Gilbert,referral,7,opt_in,false,"Neighbor referred. AC struggling in afternoons. Wants to know repair vs replace.",single_family,22,16
+HOME-002,home_services,Grace Chen,,grace.chen@example.com,Tempe,web_form,10,opt_in,false,"Asked about financing. Mentioned 'a neighbor got $1,500 off a new unit.' Noisy compressor.",condo,8,13
+HOME-003,home_services,Ada Okafor,,ada.okafor@example.com,Phoenix,event,40,opt_in,false,"Home show visitor. System is newish, curious about maintenance.",townhome,30,6
+HOME-004,home_services,Raj Patel,,raj.patel@example.com,Chandler,web_form,21,existing_relationship,false,"Says the unit is 'brand new, installed last year.' Wants a tune-up quote.",single_family,18,14
+HOME-005,home_services,Minh Nguyen,,minh.nguyen@example.com,Mesa,cold_list,60,none,false,"Purchased list. No consent on file.",single_family,25,19
+HOME-006,home_services,Jordan Brooks,,jordan.brooks@example.com,Peoria,referral,30,opt_in,false,"Friend of a past customer. No urgent issue.",single_family,12,11

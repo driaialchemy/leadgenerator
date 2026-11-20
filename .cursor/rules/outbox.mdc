@@ -1,0 +1,7 @@
+---
+description: Outbox writes files only and does not send email.
+globs: src/leadgen/outbox.py
+alwaysApply: false
+---
+
+Writes files under outbox/ only; no smtplib, email-sending, or network libraries.

@@ -1,0 +1,17 @@
+{
+  "tailor": {
+    "prospect_id": "B2B-001",
+    "claim_ids": ["VP-B2B-02", "VP-B2B-04"],
+    "evidence": [
+      {"claim_id": "VP-B2B-02", "quote": "Backups 'probably' run"},
+      {"claim_id": "VP-B2B-04", "quote": "Sister practice had a ransomware scare"}
+    ]
+  },
+  "draft": {
+    "prospect_id": "B2B-001",
+    "subject_id": "SUB-B2B-02",
+    "claim_ids": ["VP-B2B-02", "VP-B2B-04"],
+    "hook": "Mesa Ridge Dental deserves better than an IT guy who is family.",
+    "bridge": "Sign up this month and get 20% off your first three months."
+  }
+}

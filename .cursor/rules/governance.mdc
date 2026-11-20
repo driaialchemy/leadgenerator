@@ -1,0 +1,7 @@
+---
+description: Deterministic leadgen modules stay pure Python.
+globs: src/leadgen/verifier.py,src/leadgen/scoring.py,src/leadgen/metrics.py,src/leadgen/exclusions.py,src/leadgen/findings.py,src/leadgen/renderer.py,src/leadgen/phrases.py
+alwaysApply: false
+---
+
+No AI or network imports; pure deterministic Python.

@@ -1,0 +1,7 @@
+{
+  "prospect_id": "B2B-002",
+  "subject_id": "SUB-B2B-01",
+  "claim_ids": ["VP-B2B-01", "VP-B2B-03"],
+  "hook": "Many offices revisit support arrangements when a contract is near its end.",
+  "bridge": "Here is what we can put in place for {{organization}}:"
+}

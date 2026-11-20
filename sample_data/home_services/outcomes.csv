@@ -1,0 +1,9 @@
+record_id,profile_id,sent_on,furthest_stage,deal_value
+OUT-HOME-001,home_services,2026-01-10,won,9500
+OUT-HOME-002,home_services,2026-01-28,won,7200
+OUT-HOME-003,home_services,2026-02-14,won,350
+OUT-HOME-004,home_services,2026-03-01,lost_after_meeting,
+OUT-HOME-005,home_services,2026-03-19,replied,
+OUT-HOME-006,home_services,2026-04-07,sent,
+OUT-HOME-007,home_services,2026-04-25,sent,
+OUT-HOME-008,home_services,2026-05-16,sent,

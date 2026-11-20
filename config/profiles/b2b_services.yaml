@@ -1,0 +1,63 @@
+# Fictional profile. Industry content stays in this file.
+profile_id: b2b_services
+display_name: Copperline IT Services
+sender:
+  name: Morgan Ellis
+  company: Copperline IT Services
+  postal_address: "100 Example Way, Phoenix, AZ 85000"
+opt_out_line: If you would rather not hear from us, reply stop and we will remove you.
+attributes:
+  employee_count: int
+  industry: str
+  current_it_setup: str
+scoring_rules:
+  - field: employee_count
+    type: range
+    min: 10
+    max: 200
+    points: 30
+  - field: industry
+    type: in
+    values: [dental, legal, accounting, medical_clinic]
+    points: 25
+  - field: current_it_setup
+    type: in
+    values: ["none", in_house]
+    points: 15
+  - field: source
+    type: in
+    values: [referral, web_form]
+    points: 20
+  - field: last_engaged_days
+    type: range
+    max: 30
+    points: 10
+approved_claims:
+  VP-B2B-01: 24/7 monitoring and a live help desk
+  VP-B2B-02: Daily backups with quarterly restore tests
+  VP-B2B-03: A named account lead who knows your office
+  VP-B2B-04: Security awareness training for your staff
+approved_subjects:
+  SUB-B2B-01: "A question about IT support at {{organization}}"
+  SUB-B2B-02: "Backups and security for {{organization}}"
+cta: Reply with a time this week for a 15-minute call.
+buyer_persona: "You are the office manager. You delete a generic message. You reply when the message shows someone read your situation."
+note_checks:
+  - id: pricing_question
+    phrases: [pricing, financing, quote, price]
+    message: "Prospect asked about price. A person answers this; the AI may not quote."
+  - id: headcount_change
+    phrases: [merger, acquired, "people now"]
+    attribute: employee_count
+    message: "Notes suggest headcount changed. Confirm employee_count before relying on the score."
+banned_phrases:
+  - discount
+  - "% off"
+  - free
+  - guarantee
+  - risk-free
+  - limited time
+  - act now
+  - "$"
+  - "Re:"
+  - "Fwd:"

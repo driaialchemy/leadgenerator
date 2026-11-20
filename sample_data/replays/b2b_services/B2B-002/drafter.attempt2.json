@@ -1,0 +1,7 @@
+{
+  "prospect_id": "B2B-002",
+  "subject_id": "SUB-B2B-01",
+  "claim_ids": ["VP-B2B-01", "VP-B2B-03"],
+  "hook": "You mentioned unhappy response times and wanting someone who answers the phone.",
+  "bridge": "A named person who picks up the phone can change that for {{organization}}:"
+}

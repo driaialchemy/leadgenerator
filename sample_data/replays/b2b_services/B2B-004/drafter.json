@@ -1,0 +1,7 @@
+{
+  "prospect_id": "B2B-004",
+  "subject_id": "SUB-B2B-01",
+  "claim_ids": ["VP-B2B-01", "VP-B2B-03"],
+  "hook": "You mentioned overwhelmed IT staff and a need for help desk coverage.",
+  "bridge": "A live help desk and a named lead can take that load for {{organization}}:"
+}

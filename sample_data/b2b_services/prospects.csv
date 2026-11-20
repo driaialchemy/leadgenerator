@@ -1,0 +1,7 @@
+prospect_id,profile_id,contact_name,organization,email,region,source,last_engaged_days,consent_status,do_not_contact,notes,employee_count,industry,current_it_setup
+B2B-001,b2b_services,Dana Whitfield,Mesa Ridge Dental,dana.whitfield@example.com,Mesa,referral,12,opt_in,false,"Office mgr Dana. Their 'IT guy' is the owner's nephew. Backups 'probably' run. Sister practice had a ransomware scare in Sept. Asked if we do intro pricing.",18,dental,in_house
+B2B-002,b2b_services,Marcus Alder,Alder & Finch Law,marcus.alder@example.com,Phoenix,web_form,45,existing_relationship,false,"Current MSP contract ends next spring. Unhappy w/ response times. Wants someone who answers the phone.",42,legal,other_msp
+B2B-003,b2b_services,Priya Raman,Juniper Accounting Group,priya.raman@example.com,Chandler,event,20,opt_in,false,"Met at chamber mixer. Tax season is their crunch. Small team, using personal laptops.",9,accounting,none
+B2B-004,b2b_services,Tom Okoye,Saltbush Logistics,tom.okoye@example.com,Tempe,referral,5,opt_in,false,"Said 'we're 300 people now after the merger.' Two IT staff overwhelmed. Wants help desk coverage.",120,logistics,in_house
+B2B-005,b2b_services,Elena Cruz,Cholla Medical Clinic,elena.cruz@example.com,Scottsdale,web_form,3,opt_in,true,"Asked to be removed from all outreach last month.",35,medical_clinic,none
+B2B-006,b2b_services,Rick Haines,Ironwood Retail,rick.haines@example.com,Glendale,cold_list,90,existing_relationship,false,"Bought list. No contact history.",250,retail,other_msp

@@ -1,0 +1,8 @@
+{
+  "prospect_id": "HOME-001",
+  "claim_ids": ["VP-HOME-01", "VP-HOME-02"],
+  "evidence": [
+    {"claim_id": "VP-HOME-01", "quote": "AC struggling in afternoons"},
+    {"claim_id": "VP-HOME-02", "quote": "Wants to know repair vs replace"}
+  ]
+}
