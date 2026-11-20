@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M4 is done. The class page walks one prospect from the ranked list to an outbox file. Do not run git until asked.
+M5 done, pushed. The public repo is https://github.com/driaialchemy/leadgenerator.
 
 ## Done
 
@@ -15,11 +15,12 @@ M4 is done. The class page walks one prospect from the ranked list to an outbox 
 - Approval writes `outbox/<run_id>.txt` once. `REJECTED` writes nothing. The kill switch stops run and approve before a model call. The page calls `decide`, the same function the CLI prints.
 - Replays live in `sample_data/replays/`. B2B-001 and HOME-002 reuse the caught fixture, then the good fixture.
 - The class page is `src/leadgen/app.py`. Launch it with `powershell -ExecutionPolicy Bypass -File run_app.ps1`. The sidebar shows the mode, each role's provider and model, the red-team toggle, the kill switch, and Check keys.
-- 108 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`. No git.
+- 108 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`.
+- Published on `main` at https://github.com/driaialchemy/leadgenerator.
 
 ## Next
 
-No further milestone was requested. No git until asked.
+No further milestone was requested.
 
 ## Known issues
 
