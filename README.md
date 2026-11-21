@@ -48,7 +48,7 @@ The page title is Lead & Income Finder. Five steps sit under it: Find, Shortlist
 
 Five counts sit under the title: businesses found, people on the shortlist, drafts waiting, notes you approved, and files saved. Practice data uses the saved examples. Live calls the accounts. A red notice appears in the sidebar only when the kill switch is on.
 
-On Find, type a request or press an example. The example fills the box and runs the search. The result names the business, how to reach them, and why they fit. A stale record is marked. Change a field and press Update results to run that search again. Add to pipeline, then Next.
+On Find, type a request or press an example. The example fills the box and runs the search. A second box, "What kind of business are you looking for?", suggests official industry titles as you type and lets you keep the ones you want. Employee size is 1–49, 50–249, 250–499, 500–999, or any size. The result names the business, its industry, how to reach them, and why they fit. A stale record is marked. Change a field and press Update results to run that search again. Add to pipeline, then Next.
 
 Shortlist is the ranked list. Draft numbers the steps in plain language and ends on "Waiting for your approval". Review is where you type your name, acknowledge any findings, and approve, edit, or reject. Approve writes one file under `outbox/`. That file is the Practice copy. On Send, you can leave it there, or save the same approved note as a draft in Gmail or Outlook, or send it from that account. The logbook is the record of that run, in plain language. The files on disk keep their codes.
 
@@ -65,13 +65,20 @@ Settings lists the model for each step. The red-team toggle there does the same 
 
 ## Public records
 
-Search reads three public sources. It does not scrape pages and it does not guess an email or a phone number.
+Search reads public sources. It does not scrape pages and it does not guess an email, a phone number, or a headcount.
+
+The industry box matches what you type, including a misspelling, to an official 2022 NAICS title. You can keep more than one. Everyday words such as plumber, dentist, lawyer, and HVAC are listed in `config/naics_synonyms.yaml`. The words you type are not put in a request URL. The search sends the official code. If you pick an industry and the Phoenix permit source has no mapped permit type in `config/permit_map.yaml`, that source is skipped and the page says so.
+
+Employee size uses the Census size classes 1–49, 50–249, 250–499, and 500–999. Leave the selector empty for any size. "Only show businesses with a known size" hides records that do not carry a headcount. The app does not estimate one. SAM.gov's employee field is not public, EDGAR submissions do not include headcount, and the Phoenix permit fields used here do not either. In live mode every business row says "Size not in public record", and a line under the size selector points you to the Market size card.
+
+The Market size card is county totals, not a list of businesses. For the industries you picked, it shows how many establishments in the profile's county fall in each selected size band. The default county is Maricopa County, Arizona, set on each profile. The figures are from the Census Bureau's County Business Patterns for 2023, the latest year published, via `https://api.census.gov/data/2023/cbp`. The card names that year and links to the [Census Bureau's data page](https://www.census.gov/programs-surveys/cbp/data.html). A free `CENSUS_API_KEY` in the secrets file is optional. The call still runs without one, within the Census Bureau's limits. The response is cached under `runs/source_cache/` for 24 hours, and the cache file does not contain the key. If County Business Patterns does not respond, the page says so in one sentence and the business search still returns.
 
 | Source | What a search can ask | What a record can contain |
 | --- | --- | --- |
-| SAM.gov Entity Management API | NAICS, state, city, business type, or an exact business name | Business name, UEI, addresses, NAICS, registration dates, and a point of contact's name, title, and mailing address |
-| SEC EDGAR submissions | Exact business name, after another source has already found the company | Company facts and a recent-filing signal |
-| City of Phoenix ShapePHX permit points | Permit type, issue-date range, and area | Project, address, permit type, issue date, and the contact or owner |
+| SAM.gov Entity Management API | NAICS, state, city, business type, or an exact business name | Business name, UEI, addresses, NAICS, registration dates, and a point of contact's name, title, and mailing address. No headcount. |
+| SEC EDGAR submissions | Exact business name, after another source has already found the company | Company facts and a recent-filing signal. No headcount. |
+| City of Phoenix ShapePHX permit points | A permit type mapped from the chosen industry, an issue-date range, and an area | Project, address, permit type, issue date, and the contact or owner. No headcount. |
+| County Business Patterns | An official NAICS code and the profile county | Establishment counts by size band for that county and year. Not a list of businesses. |
 
 SAM.gov needs a free public API key. Create an account at [sam.gov](https://sam.gov), open your profile, and request a public API key. Put it in `SAM_API_KEY` in the secrets file named above. Leave it out of this repo. A personal key allows about 10 requests a day, so each response is cached under `runs/source_cache/` for 24 hours. The cache file does not contain the key.
 
@@ -153,7 +160,7 @@ NetWitness exposure questions:
 It reads synthetic prospect files and profile YAML, scores them, and, for people who clear the bar, drafts a message from approved claims. Code checks that draft. A blind reader scores it. A person approves it. Approval writes a file under `outbox/`. After that approval, the signed-in user can save the note as a draft in their own Gmail or Outlook account, or send it from that account. Practice does not email anyone. The repo has no SMTP library.
 
 **What can it reach?**
-Local files in this project: `config/`, `sample_data/`, `runs/`, and `outbox/`. Keys are read from `C:\Users\msell\secrets\` when that file exists, and are not stored here. Offline mode opens no network connection for the draft. Live mode calls Google, Anthropic, and OpenAI for the draft, and, when Search runs, SAM.gov, SEC EDGAR, and the City of Phoenix permit service. When you connect a mailbox, it can also reach your Gmail or Outlook account to create a draft and to send. The Outlook permission `Mail.ReadWrite` technically allows reading mail, because Graph requires it to create a draft. The code never lists or reads messages. It does not reach a CRM or a customer database. Sample prospects are fictional `@example.com` addresses. Search results are public records and are not copied into the repo.
+Local files in this project: `config/`, `sample_data/`, `runs/`, and `outbox/`. Keys are read from `C:\Users\msell\secrets\` when that file exists, and are not stored here. Offline mode opens no network connection for the draft. Live mode calls Google, Anthropic, and OpenAI for the draft, and, when Search runs, SAM.gov, SEC EDGAR, the City of Phoenix permit service, and the Census Bureau County Business Patterns API. When you connect a mailbox, it can also reach your Gmail or Outlook account to create a draft and to send. The Outlook permission `Mail.ReadWrite` technically allows reading mail, because Graph requires it to create a draft. The code never lists or reads messages. It does not reach a CRM or a customer database. Sample prospects are fictional `@example.com` addresses. Search results are public records and are not copied into the repo.
 
 **What evidence remains?**
 Each step appends one line to `runs/flight_recorder.jsonl`. A mailbox draft or send adds a line with the destination, account, recipient, provider message id, approver, and result. The body and the tokens are not in that line. A run also keeps its tailor result, draft, rendered message, verification, evaluation, and status under `runs/<prospect-id>-<UTC timestamp>/`. A confirmed mailbox action adds `mail.json` there. `outbox/` holds the Practice copy. Sample data and tests stay in the repo. `.env` is not committed. `runs/` and `outbox/` are gitignored except for their `.gitkeep` files.

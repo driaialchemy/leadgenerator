@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M9 done, pushed. An approved note can be saved as a Gmail or Outlook draft, or sent from that account. Practice still writes one outbox file. The public repo is https://github.com/driaialchemy/leadgenerator.
+M10 done locally, not pushed. Find can match a typed industry to an official NAICS title and filter by Census size class. A Market size card shows County Business Patterns establishment totals for the profile county. The public repo is https://github.com/driaialchemy/leadgenerator. M9 is already on main.
 
 ## Done
 
@@ -18,13 +18,15 @@ M9 done, pushed. An approved note can be saved as a Gmail or Outlook draft, or s
 - Send offers Practice, Gmail, and Outlook. Practice is the outbox file written at approval. Gmail uses the compose scope. Outlook uses delegated `Mail.Send` and `Mail.ReadWrite`. The code never lists or reads messages. Tokens stay in `C:\Users\msell\secrets`. See `docs/EMAIL_SETUP.md`.
 - Mail safeguards live in `deliver`: an approval record, a second confirmation, Demo safety, the signed-in address on the allowlist, one confirmed send per run, a session send cap, no email means no mailbox action, the opt-out line and sender identity, and the kill switch. A provider must return a message id before the note is marked sent.
 - Search reads SAM.gov, SEC EDGAR, and City of Phoenix permits. Offline replays trimmed fixtures. A source that fails does not stop the others.
-- 165 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`. Mail tests use fake Gmail and Graph clients.
+- Find matches a typed industry to a 2022 NAICS title, including a misspelling, and shows removable chips. Size bands are 1–49, 50–249, 250–499, and 500–999. The typed words are not sent. SAM, EDGAR, and Phoenix do not provide a public headcount, so those rows say "Size not in public record".
+- The Market size card reads County Business Patterns for 2023, the latest published year, for the profile county (Maricopa County, Arizona by default). It shows establishment counts by size band. It is county totals, not a list of businesses. `CENSUS_API_KEY` is optional. A census failure is one plain sentence and the business search still returns.
+- 178 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`. Mail tests use fake Gmail and Graph clients.
 - Published on `main` at https://github.com/driaialchemy/leadgenerator.
 - Three more profiles: workflow studio, admin desk, and local-letter sponsors. Each has six synthetic prospects and eight outcome rows. Scoring, the verifier, and approval are unchanged. The picker uses `menu_order` so the original profile stays first.
 
 ## Next
 
-M6, M7, M8, M8.1, and M9 are on main.
+M10 is committed locally. Push when the owner replies "approved push". M6 through M9 are already on main.
 
 ## Known issues
 

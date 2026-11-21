@@ -135,6 +135,17 @@ class SourceSpec(BaseModel):
     role: Literal["search", "lookup", "enrich"]
 
 
+class CountyConfig(BaseModel):
+    """The county whose establishment totals the Market size card shows."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = "Maricopa"
+    state: str = "AZ"
+    state_fips: str = "04"
+    county_fips: str = "013"
+
+
 class SearchConfig(BaseModel):
     """Allowlists and sources for a plain-language search. Empty means unused."""
 
@@ -147,6 +158,7 @@ class SearchConfig(BaseModel):
     business_types: list[str] = Field(default_factory=list)
     permit_types: list[str] = Field(default_factory=list)
     areas: list[str] = Field(default_factory=list)
+    county: CountyConfig = Field(default_factory=CountyConfig)
     sources: list[SourceSpec] = Field(default_factory=list)
 
 

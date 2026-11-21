@@ -78,6 +78,11 @@ search:
     - Building
   areas:
     - Phoenix
+  county:
+    name: Maricopa
+    state: AZ
+    state_fips: "04"
+    county_fips: "013"
   sources:
     - id: phoenix_permits
       freshness_days: 180

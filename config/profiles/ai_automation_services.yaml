@@ -79,6 +79,11 @@ search:
     - For Profit Organization
   permit_types: []
   areas: []
+  county:
+    name: Maricopa
+    state: AZ
+    state_fips: "04"
+    county_fips: "013"
   sources:
     - id: sam
       freshness_days: 400

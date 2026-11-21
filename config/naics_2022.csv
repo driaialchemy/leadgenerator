@@ -1,0 +1,39 @@
+code,title
+11,"Agriculture, Forestry, Fishing and Hunting"
+21,"Mining, Quarrying, and Oil and Gas Extraction"
+22,Utilities
+23,Construction
+31-33,Manufacturing
+42,Wholesale Trade
+44-45,Retail Trade
+48-49,Transportation and Warehousing
+51,Information
+52,Finance and Insurance
+53,"Real Estate and Rental and Leasing"
+54,"Professional, Scientific, and Technical Services"
+55,Management of Companies and Enterprises
+56,"Administrative and Support and Waste Management and Remediation Services"
+61,Educational Services
+62,Health Care and Social Assistance
+71,"Arts, Entertainment, and Recreation"
+72,Accommodation and Food Services
+81,Other Services (except Public Administration)
+92,Public Administration
+236118,Residential Remodelers
+238210,Electrical Contractors and Other Wiring Installation Contractors
+238220,"Plumbing, Heating, and Air-Conditioning Contractors"
+238310,Drywall and Insulation Contractors
+238990,All Other Specialty Trade Contractors
+541110,Offices of Lawyers
+541211,Offices of Certified Public Accountants
+541219,Other Accounting Services
+541511,Custom Computer Programming Services
+541512,Computer Systems Design Services
+541810,Advertising Agencies
+561110,Office Administrative Services
+561730,Landscaping Services
+621111,Offices of Physicians (except Mental Health Specialists)
+621210,Offices of Dentists
+722511,Full-Service Restaurants
+722513,Limited-Service Restaurants
+722515,Snack and Nonalcoholic Beverage Bars

@@ -85,6 +85,7 @@ def translator_prompt(profile: Profile, request: str) -> str:
             "Allowed business types: " + ", ".join(profile.search.business_types),
             "Allowed permit types: " + ", ".join(profile.search.permit_types),
             "Allowed areas: " + ", ".join(profile.search.areas),
+            "Allowed sizes: 1-49, 50-249, 250-499, 500-999",
         ]
     )
     return "\n".join(lines)

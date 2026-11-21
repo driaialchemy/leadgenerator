@@ -31,5 +31,6 @@ def offline_env(monkeypatch, tmp_path):
         "LEADGEN_OUTLOOK_CLIENT_ID",
         "LEADGEN_OUTLOOK_TOKEN_FILE",
         "LEADGEN_OUTLOOK_TENANT",
+        "CENSUS_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)

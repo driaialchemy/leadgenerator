@@ -123,7 +123,7 @@ def role_config(role: str) -> tuple[str, str, str]:
 def scrub(text: str) -> str:
     """Remove key values from a string before it is printed or stored."""
     cleaned = text
-    names = list(_KEYS.values()) + ["SAM_API_KEY", "LEADGEN_EDGAR_USER_AGENT"]
+    names = list(_KEYS.values()) + ["SAM_API_KEY", "LEADGEN_EDGAR_USER_AGENT", "CENSUS_API_KEY"]
     for name in names:
         value = os.environ.get(name, "").strip()
         if len(value) >= 8:

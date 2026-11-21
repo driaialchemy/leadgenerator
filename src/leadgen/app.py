@@ -8,6 +8,7 @@ import streamlit as st
 
 from leadgen.approve import decide, latest_run
 from leadgen.check_keys import main as check_keys_main
+from leadgen.industry import BAND_IDS, ids_for_labels, labels_for, live_size_note, suggest, title_for
 from leadgen.kill_switch import KillSwitchEngaged
 from leadgen.llm import ConfigError, ProviderError, current_mode
 from leadgen.mail import (
@@ -303,6 +304,7 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         placeholder=example,
         help="Example: Registered firms in Phoenix",
     )
+    _industry_picker()
     for index, text in enumerate(profile.search.examples):
         st.button(
             text,
@@ -335,6 +337,7 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         st.info(line)
     if view.get("summary"):
         st.markdown(view["summary"])
+    _market_card(view.get("market"))
     rows = view.get("rows") or []
     if rows:
         st.markdown(
@@ -342,6 +345,8 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
                 [
                     {
                         "Business": row["business"],
+                        "Industry": row.get("industry") or "",
+                        "Size": row.get("size") or "Size not in public record",
                         "Contact": row["label"],
                         "Freshness": row["stale"],
                         "Source": row["source"],
@@ -349,7 +354,7 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
                     }
                     for row in rows
                 ],
-                ["Business", "Contact", "Freshness", "Source", "Why it fits"],
+                ["Business", "Industry", "Size", "Contact", "Freshness", "Source", "Why it fits"],
             )
         )
         for row in rows:
@@ -371,10 +376,103 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         st.button("Next", key="next_search", on_click=_go, args=("shortlist",), type=_kind("search", True))
 
 
+def _industry_picker() -> None:
+    st.text_input(
+        "What kind of business are you looking for?",
+        key="industry_query",
+        placeholder="Type a business, then pick a suggestion",
+        help="The search uses the official code you pick. The words you type are not sent.",
+    )
+    query = str(st.session_state.get("industry_query") or "")
+    matches = suggest(query) if query.strip() else []
+    if matches and matches[0].confident:
+        st.caption("Did you mean")
+    elif query.strip():
+        st.caption("No close match. Closest broader categories:")
+    for index, match in enumerate(matches):
+        st.button(
+            match.title,
+            key=f"suggest_{index}",
+            help=match.code,
+            on_click=_add_chip,
+            args=(match.code, match.title),
+        )
+        st.caption(match.code)
+    for chip in list(st.session_state.get("industry_chips") or []):
+        st.button(
+            chip["title"],
+            key=f"chip_{chip['code']}",
+            help="Remove this industry",
+            on_click=_drop_chip,
+            args=(chip["code"],),
+        )
+        st.caption(chip["code"])
+    st.multiselect(
+        "Employee size",
+        options=labels_for(list(BAND_IDS)),
+        key="size_bands",
+        placeholder="Any size",
+        help="Census size classes. Leave this empty for any size.",
+        on_change=_touch_sizes,
+    )
+    st.checkbox(
+        "Only show businesses with a known size",
+        key="known_size_only",
+        help="A record with no headcount stays in the list until this is on. No size is estimated.",
+    )
+    note = live_size_note(current_mode())
+    if note:
+        st.caption(note)
+
+
+def _market_card(market: dict | None) -> None:
+    if not market:
+        return
+    st.subheader("Market size")
+    st.markdown(market["note"])
+    for industry in market["industries"]:
+        counts = ", ".join(
+            f"{band['label']}: {band['count']} establishments" for band in industry["bands"]
+        )
+        st.markdown(f"{industry['title']} ({industry['code']}). {counts}")
+    st.markdown(f"{market['year']} County Business Patterns. [Source]({market['url']})")
+
+
+def _add_chip(code: str, title: str) -> None:
+    chips = [item for item in st.session_state.get("industry_chips") or [] if item.get("code") != code]
+    chips.append({"code": code, "title": title})
+    st.session_state.industry_chips = chips
+
+
+def _drop_chip(code: str) -> None:
+    st.session_state.industry_chips = [
+        item for item in st.session_state.get("industry_chips") or [] if item.get("code") != code
+    ]
+
+
+def _touch_sizes() -> None:
+    st.session_state.size_bands_touched = True
+
+
+def _chosen_sizes():
+    selected = ids_for_labels(list(st.session_state.get("size_bands") or []))
+    if selected:
+        return selected
+    if st.session_state.get("size_bands_touched"):
+        return []
+    return None
+
+
 def _queue_search(text: str | None = None) -> None:
     if text is not None:
         st.session_state.search_query = text
-    st.session_state.pending_search = st.session_state.get("search_query") or text or ""
+        st.session_state.industry_chips = []
+    request = st.session_state.get("search_query") or text or ""
+    if not str(request).strip() and (
+        st.session_state.get("industry_chips") or _chosen_sizes()
+    ):
+        request = "selected industries"
+    st.session_state.pending_search = request
 
 
 def _queue_update() -> None:
@@ -432,6 +530,8 @@ def _edits() -> dict:
         "business_type": st.session_state.get(FIELD_BUSINESS, ""),
         "contact": st.session_state.get(FIELD_CONTACT, ""),
         "max_results": st.session_state.get(FIELD_MAX, ""),
+        "sizes": _chosen_sizes(),
+        "known_size_only": bool(st.session_state.get("known_size_only")),
     }
 
 
@@ -454,6 +554,11 @@ def _seed_fields(view: dict) -> None:
     st.session_state[FIELD_BUSINESS] = values.get("business_type") or ""
     st.session_state[FIELD_CONTACT] = "Any"
     st.session_state[FIELD_MAX] = "10"
+    codes = [item.strip() for item in str(values.get("naics") or "").split(",") if item.strip()]
+    st.session_state.industry_chips = [
+        {"code": code, "title": title_for(code) or code} for code in codes
+    ]
+    st.session_state.size_bands = labels_for(list(values.get("sizes") or []))
     st.session_state.fields_for = _token(view)
 
 
@@ -509,7 +614,15 @@ def _search_fields(profile, view: dict) -> None:
 def _run_search(root: Path, profile, request: str) -> None:
     st.session_state.notice = ""
     try:
-        outcome = search(profile, request, root)
+        chips = list(st.session_state.get("industry_chips") or [])
+        outcome = search(
+            profile,
+            request,
+            root,
+            chosen_naics=[item["code"] for item in chips] or None,
+            chosen_sizes=_chosen_sizes(),
+            known_size_only=bool(st.session_state.get("known_size_only")),
+        )
     except KillSwitchEngaged as exc:
         st.session_state.notice = str(exc)
         return

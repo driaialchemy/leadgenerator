@@ -258,14 +258,19 @@ def contact_channels(run_dir: Path) -> list[str]:
 
 def search_view(outcome) -> dict:
     """Summary, table rows, and the prospects the page can add."""
+    from leadgen.industry import live_size_note, title_for
     from leadgen.sources.records import SOURCE_LABELS
 
     rows = []
     prospects = []
     for hit in outcome.hits:
+        code = hit.record.naics[0] if hit.record.naics else ""
+        count = hit.record.employee_count
         rows.append(
             {
                 "business": hit.business_name,
+                "industry": title_for(code) or code,
+                "size": f"{count} employees" if count is not None else "Size not in public record",
                 "label": hit.label,
                 "stale": "Stale record" if hit.stale else "",
                 "source": SOURCE_LABELS.get(hit.source, hit.source),
@@ -281,6 +286,9 @@ def search_view(outcome) -> dict:
         f"{outcome.total_matches} matches, {outcome.named_contacts} named contacts, "
         f"{outcome.shown} shown, {outcome.held_back} held back"
     )
+    extra = getattr(outcome, "size_line", "") or ""
+    if extra:
+        summary = f"{summary}. {extra}"
     filt = outcome.filter
     parts = [f"sources: {', '.join(filt.sources)}"]
     for label, value in (
@@ -313,8 +321,12 @@ def search_view(outcome) -> dict:
             "business_type": filt.business_type,
             "area": filt.area,
             "sources": list(filt.sources),
+            "sizes": list(filt.sizes),
+            "known_size_only": filt.known_size_only,
         },
         "unsupported_raw": list(outcome.unsupported),
+        "market": getattr(outcome, "market", None),
+        "size_note": live_size_note(current_mode()),
     }
 
 
@@ -415,6 +427,8 @@ def refresh_search(profile, previous: dict, edits: dict, root: Path) -> dict:
         view = dict(previous)
         view["field_error"] = "Use a date like 2026-05-24."
         return view
+    chosen_sizes = edits.get("sizes")
+    sizes = list(stored.get("sizes") or []) if chosen_sizes is None else list(chosen_sizes)
     filt = SearchFilter(
         sources=list(stored.get("sources") or []),
         naics=naics,
@@ -425,6 +439,8 @@ def refresh_search(profile, previous: dict, edits: dict, root: Path) -> dict:
         date_from=date_from,
         date_to=date_to,
         area=location if profile.search.areas else (stored.get("area") or ""),
+        sizes=sizes,
+        known_size_only=bool(edits.get("known_size_only")),
     )
     outcome = execute(
         profile,

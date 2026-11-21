@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from leadgen.industry import apply_choices, keep_record, size_line
 from leadgen.kill_switch import assert_not_engaged
 from leadgen.llm import complete, scrub
 from leadgen.messages import reason_prompt, translator_prompt
@@ -18,6 +19,8 @@ from leadgen.profiles import load_pipeline_config
 from leadgen.schemas import PipelineConfig, Profile, Prospect
 from leadgen.scoring import score
 from leadgen.sources.cache import cache_file, read_cache, write_cache
+from leadgen.sources.census_cbp import ENDPOINT as CENSUS_ENDPOINT
+from leadgen.sources.census_cbp import load_market
 from leadgen.sources.edgar import (
     TICKERS_URL,
     attach_filings,
@@ -61,7 +64,19 @@ class SearchHit:
 
 
 class SearchOutcome:
-    def __init__(self, hits, total_matches, named_contacts, shown, held_back, messages, unsupported, filt):
+    def __init__(
+        self,
+        hits,
+        total_matches,
+        named_contacts,
+        shown,
+        held_back,
+        messages,
+        unsupported,
+        filt,
+        market=None,
+        size_line="",
+    ):
         self.hits = hits
         self.total_matches = total_matches
         self.named_contacts = named_contacts
@@ -70,6 +85,8 @@ class SearchOutcome:
         self.messages = messages
         self.unsupported = unsupported
         self.filter = filt
+        self.market = market
+        self.size_line = size_line
 
 
 def search(
@@ -81,6 +98,9 @@ def search(
     network: bool | None = None,
     transport=None,
     lookup_cap: int | None = None,
+    chosen_naics: list[str] | None = None,
+    chosen_sizes: list[str] | None = None,
+    known_size_only: bool = False,
 ) -> SearchOutcome:
     """Rank public records for one request. A failed source does not stop the others."""
     folder = Path(root) if root is not None else repo_root()
@@ -90,6 +110,7 @@ def search(
         filt, unsupported = translate(profile, request, folder)
     except (ValueError, json.JSONDecodeError, ValidationError):
         filt, unsupported = SearchFilter(), ["the request"]
+    filt, notes = apply_choices(filt, profile, chosen_naics, chosen_sizes, known_size_only)
     return execute(
         profile,
         filt,
@@ -101,6 +122,7 @@ def search(
         transport=transport,
         lookup_cap=lookup_cap,
         request=request,
+        notes=notes,
     )
 
 
@@ -115,6 +137,7 @@ def execute(
     transport=None,
     lookup_cap: int | None = None,
     request: str = "",
+    notes: list[str] | None = None,
 ) -> SearchOutcome:
     config = pipeline or load_pipeline_config()
     day = today or date.today()
@@ -124,8 +147,9 @@ def execute(
     hours = config.source_cache_hours
     windows = {spec.id: spec.freshness_days for spec in profile.search.sources}
     specs = {spec.id: spec for spec in profile.search.sources}
-    messages: list[str] = []
+    messages: list[str] = list(notes or [])
     records: list[PublicRecord] = []
+    source_counts: dict[str, int] = {}
     query = _query(filt)
     for source_id in filt.sources:
         spec = specs.get(source_id)
@@ -137,6 +161,7 @@ def execute(
         if failure is not None:
             messages.append(failure)
             continue
+        source_counts[source_id] = source_counts.get(source_id, 0) + len(found)
         records.extend(found)
     if any(spec.role == "lookup" and spec.id in filt.sources for spec in profile.search.sources):
         names = []
@@ -160,6 +185,33 @@ def execute(
                 break
             records.extend(found)
     merged = dedupe(records)
+    market, market_message = load_market(
+        profile.search.county,
+        filt.naics,
+        filt.sizes,
+        root,
+        hours,
+        use_network,
+        caller,
+    )
+    if market_message:
+        messages.append(market_message)
+    if filt.naics:
+        census_count = 0
+        if market:
+            census_count = sum(
+                band["count"] for industry in market["industries"] for band in industry["bands"]
+            )
+        source_counts["census_cbp"] = census_count
+        _source_log(
+            root,
+            "census_cbp",
+            CENSUS_ENDPOINT,
+            "fail" if market_message else "ok",
+            census_count,
+            0,
+            False,
+        )
     if "edgar" in filt.sources:
         merged, failure = _enrich_edgar(
             merged, root, hours, use_network, caller, day, windows.get("edgar", 0)
@@ -168,9 +220,25 @@ def execute(
             messages.append(failure)
     marked = [_mark(record, windows, day) for record in merged]
     kept, held_back = split_suppression(marked, load_suppression())
-    hits = _rank(profile, config, kept, filt, day)
+    sized = [record for record in kept if keep_record(record, filt.sizes, filt.known_size_only)]
+    hits = _rank(profile, config, sized, filt, day)
     _fill_reasons(hits, request, profile, root)
     named = sum(1 for hit in hits if hit.label == "Named contact")
+    _log(
+        root,
+        "search",
+        "search",
+        "search",
+        "ok",
+        scrub(
+            "typed {typed} naics {naics} sizes {sizes} sources {sources}".format(
+                typed=(request or "search")[:80],
+                naics=",".join(filt.naics) or "none",
+                sizes=",".join(filt.sizes) or "any",
+                sources=" ".join(f"{key}={value}" for key, value in source_counts.items()) or "none",
+            )
+        )[:240],
+    )
     return SearchOutcome(
         hits=hits,
         total_matches=len(marked),
@@ -180,6 +248,8 @@ def execute(
         messages=messages,
         unsupported=unsupported,
         filt=filt,
+        market=market,
+        size_line=size_line(sized, filt.sizes),
     )
 
 
@@ -208,7 +278,10 @@ def restrict(filt: SearchFilter, profile: Profile) -> tuple[SearchFilter, list[s
             sources.append(source)
         elif source not in allowed_sources:
             unsupported.append(source)
-    naics = _keep_many(filt.naics, profile.search.naics, unsupported)
+    from leadgen.industry import BAND_IDS, catalog_codes
+
+    naics = _keep_many(filt.naics, catalog_codes(), unsupported)
+    sizes = _keep_many(filt.sizes, list(BAND_IDS), unsupported)
     state = _keep_one(filt.state, profile.search.states, unsupported)
     city = _keep_one(filt.city, profile.search.cities, unsupported)
     business_type = _keep_one(filt.business_type, profile.search.business_types, unsupported)
@@ -230,6 +303,8 @@ def restrict(filt: SearchFilter, profile: Profile) -> tuple[SearchFilter, list[s
         date_from=date_from,
         date_to=date_to,
         area=area,
+        sizes=sizes,
+        known_size_only=filt.known_size_only,
     )
     return cleaned, unsupported
 

@@ -10,6 +10,7 @@ SOURCE_LABELS = {
     "sam": "SAM.gov",
     "edgar": "SEC EDGAR",
     "phoenix_permits": "Phoenix permits",
+    "census_cbp": "County Business Patterns",
 }
 
 
@@ -41,6 +42,7 @@ class PublicRecord(BaseModel):
     permit_date: date | None = None
     recent_filing: bool = False
     recent_permit: bool = False
+    employee_count: int | None = None
 
 
 class SourceQuery(BaseModel):
@@ -74,6 +76,8 @@ class SearchFilter(BaseModel):
     date_to: str = ""
     area: str = ""
     unsupported: list[str] = Field(default_factory=list)
+    sizes: list[str] = Field(default_factory=list)
+    known_size_only: bool = False
 
 
 class SuppressionEntry(BaseModel):
