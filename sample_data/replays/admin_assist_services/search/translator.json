@@ -1,0 +1,16 @@
+{
+  "sources": [
+    "sam"
+  ],
+  "naics": [
+    "561110"
+  ],
+  "state": "AZ",
+  "city": "Phoenix",
+  "business_type": "For Profit Organization",
+  "permit_type": "",
+  "date_from": "",
+  "date_to": "",
+  "area": "",
+  "unsupported": []
+}

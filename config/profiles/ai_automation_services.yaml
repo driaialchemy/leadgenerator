@@ -1,0 +1,85 @@
+# Fictional profile. Industry content stays in this file.
+profile_id: ai_automation_services
+menu_order: 1
+display_name: Northloop Workflow Studio
+sender:
+  name: Rowan Hale
+  company: Northloop Workflow Studio
+  postal_address: "300 Example Way, Phoenix, AZ 85000"
+opt_out_line: If you would rather not hear from us, reply stop and we will remove you.
+attributes:
+  staff_count: int
+  tools_in_use: str
+  manual_task: str
+scoring_rules:
+  - field: staff_count
+    type: range
+    min: 2
+    max: 40
+    points: 30
+  - field: tools_in_use
+    type: in
+    values: [spreadsheets, email_only]
+    points: 25
+  - field: manual_task
+    type: in
+    values: [invoicing, scheduling, intake]
+    points: 15
+  - field: source
+    type: in
+    values: [referral, web_form]
+    points: 20
+  - field: last_engaged_days
+    type: range
+    max: 30
+    points: 10
+approved_claims:
+  VP-AUTO-01: A written map of the manual steps before any workflow is built
+  VP-AUTO-02: A small workflow in the tools the office already uses
+  VP-AUTO-03: A short handoff so the staff can run it
+  VP-AUTO-04: One revision after the office tries it for a week
+approved_subjects:
+  SUB-AUTO-01: "A question about the manual work at {{organization}}"
+  SUB-AUTO-02: "Workflow help for {{contact_first_name}}"
+cta: Reply with a time this week for a short working session.
+buyer_persona: "You are the owner. You delete a generic message. You reply when the message shows someone read your office."
+note_checks:
+  - id: guarantee_ask
+    phrases: [guaranteed, roi, "return on investment"]
+    message: "Prospect asked about a guaranteed result or ROI. A person answers this; the draft may not promise income."
+banned_phrases:
+  - discount
+  - "% off"
+  - free
+  - guarantee
+  - guaranteed
+  - risk-free
+  - limited time
+  - act now
+  - "$"
+  - "%"
+  - "passive income"
+  - "make money"
+  - "double your revenue"
+  - "Re:"
+  - "Fwd:"
+search:
+  examples:
+    - Registered programming firms in Phoenix
+    - Small programming firms in Arizona
+    - Phoenix firms that still use spreadsheets
+    - A named contact at a Phoenix programming firm
+  naics:
+    - "541511"
+  states:
+    - AZ
+  cities:
+    - Phoenix
+  business_types:
+    - For Profit Organization
+  permit_types: []
+  areas: []
+  sources:
+    - id: sam
+      freshness_days: 400
+      role: search

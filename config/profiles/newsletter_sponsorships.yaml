@@ -1,0 +1,83 @@
+# Fictional profile. Industry content stays in this file.
+profile_id: newsletter_sponsorships
+menu_order: 1
+display_name: Valley Desk Letter
+sender:
+  name: Samir Cole
+  company: Valley Desk Letter
+  postal_address: "500 Example Way, Phoenix, AZ 85000"
+opt_out_line: If you would rather not hear from us, reply stop and we will remove you.
+attributes:
+  business_category: str
+  local_focus: str
+  ad_spend_signal: str
+scoring_rules:
+  - field: local_focus
+    type: in
+    values: [neighborhood, city]
+    points: 30
+  - field: business_category
+    type: in
+    values: [restaurant, clinic, shop]
+    points: 25
+  - field: ad_spend_signal
+    type: in
+    values: ["none", occasional]
+    points: 15
+  - field: source
+    type: in
+    values: [referral, web_form]
+    points: 20
+  - field: last_engaged_days
+    type: range
+    max: 30
+    points: 10
+approved_claims:
+  VP-NEWS-01: One sponsor mention in a weekly local letter
+  VP-NEWS-02: The sponsor line is labeled as a sponsor
+  VP-NEWS-03: You see the draft mention before it is sent
+  VP-NEWS-04: A set end date for the slot
+approved_subjects:
+  SUB-NEWS-01: "A sponsor line for {{organization}}"
+  SUB-NEWS-02: "Local letter question for {{contact_first_name}}"
+cta: Reply with a time this week to look at a sponsor line.
+buyer_persona: "You are the owner. You delete a generic message. You reply when the message shows someone read your shop."
+note_checks:
+  - id: guarantee_ask
+    phrases: [guaranteed, roi, "return on investment"]
+    message: "Prospect asked about a guaranteed result or ROI. A person answers this; the draft may not promise income."
+banned_phrases:
+  - discount
+  - "% off"
+  - free
+  - guarantee
+  - guaranteed
+  - risk-free
+  - limited time
+  - act now
+  - "$"
+  - "%"
+  - "passive income"
+  - "make money"
+  - "double your revenue"
+  - "Re:"
+  - "Fwd:"
+search:
+  examples:
+    - Local businesses in Phoenix
+    - For-profit firms in Phoenix
+    - Phoenix businesses with a public registration
+    - A named contact at a Phoenix business
+  naics: []
+  states:
+    - AZ
+  cities:
+    - Phoenix
+  business_types:
+    - For Profit Organization
+  permit_types: []
+  areas: []
+  sources:
+    - id: sam
+      freshness_days: 400
+      role: search

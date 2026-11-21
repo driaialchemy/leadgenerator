@@ -1,0 +1,17 @@
+{
+  "prospect_id": "AUTO-001",
+  "claim_ids": [
+    "VP-AUTO-01",
+    "VP-AUTO-02"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-AUTO-01",
+      "quote": "copies each invoice into a spreadsheet"
+    },
+    {
+      "claim_id": "VP-AUTO-02",
+      "quote": "Wants that weekly copy step mapped"
+    }
+  ]
+}

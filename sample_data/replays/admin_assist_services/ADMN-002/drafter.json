@@ -1,0 +1,10 @@
+{
+  "prospect_id": "ADMN-002",
+  "subject_id": "SUB-ADMN-01",
+  "claim_ids": [
+    "VP-ADMN-01",
+    "VP-ADMN-03"
+  ],
+  "hook": "Clearing that inbox could make money.",
+  "bridge": "A person reviews every letter before it goes out for {{organization}}:"
+}

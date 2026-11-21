@@ -1,0 +1,10 @@
+{
+  "prospect_id": "AUTO-001",
+  "subject_id": "SUB-AUTO-01",
+  "claim_ids": [
+    "VP-AUTO-01",
+    "VP-AUTO-02"
+  ],
+  "hook": "You mentioned invoices copied into a spreadsheet by hand.",
+  "bridge": "A written map of those steps can come before any workflow for {{organization}}:"
+}

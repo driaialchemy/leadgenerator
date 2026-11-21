@@ -1,0 +1,17 @@
+{
+  "prospect_id": "AUTO-003",
+  "claim_ids": [
+    "VP-AUTO-01",
+    "VP-AUTO-04"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-AUTO-01",
+      "quote": "New client intake arrives as email threads"
+    },
+    {
+      "claim_id": "VP-AUTO-04",
+      "quote": "before booking a session"
+    }
+  ]
+}

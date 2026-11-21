@@ -1,0 +1,84 @@
+# Fictional profile. Industry content stays in this file.
+profile_id: admin_assist_services
+menu_order: 1
+display_name: Clearfile Admin Desk
+sender:
+  name: Quinn Adler
+  company: Clearfile Admin Desk
+  postal_address: "400 Example Way, Phoenix, AZ 85000"
+opt_out_line: If you would rather not hear from us, reply stop and we will remove you.
+attributes:
+  paperwork_volume: int
+  business_type: str
+  admin_staff: int
+scoring_rules:
+  - field: paperwork_volume
+    type: range
+    min: 20
+    points: 30
+  - field: business_type
+    type: in
+    values: [clinic, shop, office]
+    points: 25
+  - field: admin_staff
+    type: range
+    max: 2
+    points: 15
+  - field: source
+    type: in
+    values: [referral, web_form]
+    points: 20
+  - field: last_engaged_days
+    type: range
+    max: 30
+    points: 10
+approved_claims:
+  VP-ADMN-01: A person reviews every file and letter before it goes out
+  VP-ADMN-02: Sorting and naming for a messy shared folder
+  VP-ADMN-03: A first-pass letter you can edit
+  VP-ADMN-04: A checklist of what was organized
+approved_subjects:
+  SUB-ADMN-01: "A question about the paperwork at {{organization}}"
+  SUB-ADMN-02: "File help for {{contact_first_name}}"
+cta: Reply with a time this week for a file review.
+buyer_persona: "You are the person who handles the paperwork. You delete a generic message. You reply when the message shows someone read the pile."
+note_checks:
+  - id: guarantee_ask
+    phrases: [guaranteed, roi, "return on investment"]
+    message: "Prospect asked about a guaranteed result or ROI. A person answers this; the draft may not promise income."
+banned_phrases:
+  - discount
+  - "% off"
+  - free
+  - guarantee
+  - guaranteed
+  - risk-free
+  - limited time
+  - act now
+  - "$"
+  - "%"
+  - "passive income"
+  - "make money"
+  - "double your revenue"
+  - "Re:"
+  - "Fwd:"
+search:
+  examples:
+    - Registered office-admin firms in Phoenix
+    - Office support firms in Arizona
+    - Phoenix firms with office admin work
+    - A named contact at a Phoenix office firm
+  naics:
+    - "561110"
+  states:
+    - AZ
+  cities:
+    - Phoenix
+  business_types:
+    - For Profit Organization
+  permit_types: []
+  areas: []
+  sources:
+    - id: sam
+      freshness_days: 400
+      role: search

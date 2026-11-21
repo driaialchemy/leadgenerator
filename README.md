@@ -2,7 +2,9 @@
 
 A teaching demo for business owners. Code decides who to contact. The AI writes only from an approved fact sheet. Code inspects every draft. A person signs before anything leaves the building.
 
-Two fictional businesses live in profile files, not in the Python. One is Copperline IT Services, a managed-IT shop. The other is Desert Peak Heating & Cooling. Swap the profile and the scoring rules, approved claims, and sender change. The code stays the same.
+Five fictional businesses live in profile files, not in the Python. Copperline IT Services is a managed-IT shop. Desert Peak Heating & Cooling is a home-services shop. Northloop Workflow Studio builds small workflows for local offices. Clearfile Admin Desk organizes files and first-pass letters, and a person reviews the work before it goes out. Valley Desk Letter sells sponsor slots in a local letter. Swap the profile and the scoring rules, approved claims, and sender change. The code stays the same.
+
+Adding a business is a YAML file in `config/profiles/` plus a `prospects.csv` and an `outcomes.csv` under `sample_data/<profile_id>/`. The income-model profiles ban earnings language, including `$` and `%`. Their approved claims describe the service, not a result.
 
 Sample people use `@example.com` addresses. Nothing here is a real contact.
 

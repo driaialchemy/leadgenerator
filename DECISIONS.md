@@ -152,3 +152,11 @@ SAM.gov is the Entity Management API, public sections only, with `SAM_API_KEY`. 
 A stale record is a flag beside the main label. The label is Named contact, Business phone on record, or Mailing address only, and only when the record contains that channel. Records are de-duplicated on UEI, or on name plus address, before suppression and ranking. Suppression matches business name, domain, or UEI.
 
 A prospect with no email still runs through the existing pipeline. The draft is verified as before. The approval screen shows the channels on the record. The outbox file adds the line "No email on record". Scoring, verifier, and approval rules are unchanged. The flight recorder adds `search`, `source_call`, and `add_to_pipeline`.
+
+## 2026-11-20 — Three income-model profiles
+
+`ai_automation_services`, `admin_assist_services`, and `newsletter_sponsorships` are YAML, sample CSVs, and offline replays. The pipeline, scoring, verifier, and approval code are unchanged. Each profile bans earnings language, including `$` and `%`, and flags a note that asks for a guaranteed result or an ROI. Approved claims describe the service. The admin claims say a person reviews the work.
+
+Search for the first two is SAM.gov by NAICS `541511` and `561110`. The letter profile searches SAM.gov for Phoenix, AZ, with no NAICS. Freshness is 400 days.
+
+`menu_order` defaults to 0. The new profiles set 1, so the picker still opens on the original profile. The Python names no profile id.

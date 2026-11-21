@@ -1,0 +1,7 @@
+prospect_id,profile_id,contact_name,organization,email,region,source,last_engaged_days,consent_status,do_not_contact,notes,business_category,local_focus,ad_spend_signal
+NEWS-001,newsletter_sponsorships,Camila Ruiz,Ruiz Lunch Counter,camila.ruiz@example.com,Mesa,referral,9,opt_in,false,"Neighbor referral. The lunch counter wants a labeled sponsor line in the local letter.",restaurant,neighborhood,none
+NEWS-002,newsletter_sponsorships,Andre Walsh,Walsh Hardware,andre.walsh@example.com,Chandler,web_form,12,opt_in,false,"Asked what a sponsor line would do for weekend traffic.",shop,city,occasional
+NEWS-003,newsletter_sponsorships,Helen Cho,Cho Family Clinic,helen.cho@example.com,Scottsdale,referral,40,opt_in,false,"Asked if a sponsor slot is guaranteed and what return on investment to expect.",clinic,neighborhood,occasional
+NEWS-004,newsletter_sponsorships,Omar Haddad,Haddad Grill,omar.haddad@example.com,Gilbert,event,20,opt_in,false,"Home show visitor. Regional catering, not a neighborhood regular.",restaurant,regional,none
+NEWS-005,newsletter_sponsorships,Tara Singh,Singh Floral,tara.singh@example.com,Scottsdale,referral,4,opt_in,true,"Asked to be removed from all outreach last month.",shop,neighborhood,none
+NEWS-006,newsletter_sponsorships,Blake Porter,Porter Media Group,blake.porter@example.com,Phoenix,cold_list,200,existing_relationship,false,"Bought list. No local tie.",agency,national,heavy

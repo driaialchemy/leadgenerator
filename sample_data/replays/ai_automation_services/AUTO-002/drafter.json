@@ -1,0 +1,10 @@
+{
+  "prospect_id": "AUTO-002",
+  "subject_id": "SUB-AUTO-02",
+  "claim_ids": [
+    "VP-AUTO-02",
+    "VP-AUTO-03"
+  ],
+  "hook": "You could turn that weekly schedule into passive income.",
+  "bridge": "A small workflow is the first step for {{organization}}:"
+}

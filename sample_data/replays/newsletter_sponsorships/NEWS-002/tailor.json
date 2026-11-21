@@ -1,0 +1,17 @@
+{
+  "prospect_id": "NEWS-002",
+  "claim_ids": [
+    "VP-NEWS-01",
+    "VP-NEWS-03"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-NEWS-01",
+      "quote": "a sponsor line"
+    },
+    {
+      "claim_id": "VP-NEWS-03",
+      "quote": "weekend traffic"
+    }
+  ]
+}

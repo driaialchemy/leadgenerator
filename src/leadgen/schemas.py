@@ -154,6 +154,7 @@ class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     profile_id: str
+    menu_order: int = 0
     display_name: str
     sender: Sender
     opt_out_line: str

@@ -1,0 +1,10 @@
+{
+  "prospect_id": "ADMN-001",
+  "subject_id": "SUB-ADMN-01",
+  "claim_ids": [
+    "VP-ADMN-01",
+    "VP-ADMN-02"
+  ],
+  "hook": "You mentioned referral folders piled in one cabinet.",
+  "bridge": "A person reviews every file before it goes out for {{organization}}:"
+}

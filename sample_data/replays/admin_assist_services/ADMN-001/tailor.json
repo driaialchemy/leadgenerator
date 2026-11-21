@@ -1,0 +1,17 @@
+{
+  "prospect_id": "ADMN-001",
+  "claim_ids": [
+    "VP-ADMN-01",
+    "VP-ADMN-02"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-ADMN-01",
+      "quote": "Referral folders are piled in one cabinet"
+    },
+    {
+      "claim_id": "VP-ADMN-02",
+      "quote": "Wants the files named"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+prospect_id,profile_id,contact_name,organization,email,region,source,last_engaged_days,consent_status,do_not_contact,notes,paperwork_volume,business_type,admin_staff
+ADMN-001,admin_assist_services,Maya Ibarra,Ibarra Family Clinic,maya.ibarra@example.com,Gilbert,referral,6,opt_in,false,"Referral folders are piled in one cabinet. Wants the files named before anyone sends a letter.",40,clinic,1
+ADMN-002,admin_assist_services,Hugo Marsh,Marsh Supply Counter,hugo.marsh@example.com,Tempe,web_form,14,opt_in,false,"Supplier invoices sit in a shop inbox. Asked us to spell out the upside of clearing that backlog.",30,shop,0
+ADMN-003,admin_assist_services,Amina Farouk,Farouk Studio,amina.farouk@example.com,Phoenix,referral,5,opt_in,false,"Client letters go out from a shared inbox. Asked what ROI to expect and for guaranteed results.",40,studio,1
+ADMN-004,admin_assist_services,Nora Feldman,Feldman Pet Clinic,nora.feldman@example.com,Peoria,event,10,opt_in,false,"Met at a chamber mixer. Curious about file naming, no urgent pile.",10,clinic,1
+ADMN-005,admin_assist_services,Seth Alvarez,Alvarez Books,seth.alvarez@example.com,Mesa,cold_list,60,none,false,"Purchased list. No consent on file.",30,shop,1
+ADMN-006,admin_assist_services,Rae Dalton,Dalton Warehousing,rae.dalton@example.com,Glendale,cold_list,90,existing_relationship,false,"No admin pain on file.",5,warehouse,8

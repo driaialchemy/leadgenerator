@@ -1,0 +1,10 @@
+{
+  "prospect_id": "AUTO-002",
+  "subject_id": "SUB-AUTO-02",
+  "claim_ids": [
+    "VP-AUTO-02",
+    "VP-AUTO-03"
+  ],
+  "hook": "You mentioned scheduling that still lives in a shared spreadsheet.",
+  "bridge": "A small workflow in the tools the office already uses can cover that for {{organization}}:"
+}

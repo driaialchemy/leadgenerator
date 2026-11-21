@@ -41,8 +41,14 @@ def data_root() -> Path:
 
 
 def profile_ids() -> list[str]:
+    """Every profile file. menu_order keeps the original default first."""
     folder = repo_root() / "config" / "profiles"
-    return sorted(path.stem for path in folder.glob("*.yaml"))
+    ranked = []
+    for path in folder.glob("*.yaml"):
+        profile = load_profile(path.stem)
+        ranked.append((profile.menu_order, path.stem))
+    ranked.sort()
+    return [profile_id for _, profile_id in ranked]
 
 
 def kill_message(root: Path | None = None) -> str:

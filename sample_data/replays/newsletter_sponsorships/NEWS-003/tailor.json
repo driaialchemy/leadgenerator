@@ -1,0 +1,17 @@
+{
+  "prospect_id": "NEWS-003",
+  "claim_ids": [
+    "VP-NEWS-01",
+    "VP-NEWS-04"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-NEWS-01",
+      "quote": "a sponsor slot"
+    },
+    {
+      "claim_id": "VP-NEWS-04",
+      "quote": "to expect"
+    }
+  ]
+}

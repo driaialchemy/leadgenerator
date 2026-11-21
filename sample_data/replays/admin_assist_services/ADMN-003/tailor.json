@@ -1,0 +1,17 @@
+{
+  "prospect_id": "ADMN-003",
+  "claim_ids": [
+    "VP-ADMN-03",
+    "VP-ADMN-04"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-ADMN-03",
+      "quote": "Client letters go out from a shared inbox"
+    },
+    {
+      "claim_id": "VP-ADMN-04",
+      "quote": "Asked what ROI to expect"
+    }
+  ]
+}

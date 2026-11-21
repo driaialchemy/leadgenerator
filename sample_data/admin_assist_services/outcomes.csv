@@ -1,0 +1,9 @@
+record_id,profile_id,sent_on,furthest_stage,deal_value
+OUT-ADMN-001,admin_assist_services,2026-01-10,won,900
+OUT-ADMN-002,admin_assist_services,2026-01-28,won,600
+OUT-ADMN-003,admin_assist_services,2026-02-14,won,450
+OUT-ADMN-004,admin_assist_services,2026-03-01,lost_after_meeting,
+OUT-ADMN-005,admin_assist_services,2026-03-19,replied,
+OUT-ADMN-006,admin_assist_services,2026-04-07,sent,
+OUT-ADMN-007,admin_assist_services,2026-04-25,sent,
+OUT-ADMN-008,admin_assist_services,2026-05-16,sent,

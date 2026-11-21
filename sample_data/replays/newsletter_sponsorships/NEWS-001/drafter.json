@@ -1,0 +1,10 @@
+{
+  "prospect_id": "NEWS-001",
+  "subject_id": "SUB-NEWS-01",
+  "claim_ids": [
+    "VP-NEWS-01",
+    "VP-NEWS-02"
+  ],
+  "hook": "You mentioned a labeled sponsor line in the local letter.",
+  "bridge": "The sponsor line stays labeled as a sponsor for {{organization}}:"
+}

@@ -1,0 +1,9 @@
+record_id,profile_id,sent_on,furthest_stage,deal_value
+OUT-AUTO-001,ai_automation_services,2026-01-15,won,2400
+OUT-AUTO-002,ai_automation_services,2026-02-03,won,1800
+OUT-AUTO-003,ai_automation_services,2026-02-20,lost_after_meeting,
+OUT-AUTO-004,ai_automation_services,2026-03-04,meeting,
+OUT-AUTO-005,ai_automation_services,2026-03-18,replied,
+OUT-AUTO-006,ai_automation_services,2026-04-02,replied,
+OUT-AUTO-007,ai_automation_services,2026-04-22,sent,
+OUT-AUTO-008,ai_automation_services,2026-05-11,sent,

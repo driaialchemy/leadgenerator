@@ -1,0 +1,17 @@
+{
+  "prospect_id": "AUTO-002",
+  "claim_ids": [
+    "VP-AUTO-02",
+    "VP-AUTO-03"
+  ],
+  "evidence": [
+    {
+      "claim_id": "VP-AUTO-02",
+      "quote": "Scheduling still lives in a shared spreadsheet"
+    },
+    {
+      "claim_id": "VP-AUTO-03",
+      "quote": "upside of automating that weekly schedule"
+    }
+  ]
+}

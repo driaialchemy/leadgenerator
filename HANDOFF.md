@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M6 done locally, not pushed. Search reads public records. The public repo is https://github.com/driaialchemy/leadgenerator.
+M7 done locally, not pushed. Three income-model profiles are config and sample data. The public repo is https://github.com/driaialchemy/leadgenerator.
 
 ## Done
 
@@ -16,12 +16,13 @@ M6 done locally, not pushed. Search reads public records. The public repo is htt
 - Replays live in `sample_data/replays/`. B2B-001 and HOME-002 reuse the caught fixture, then the good fixture.
 - The class page is `src/leadgen/app.py`. Launch it with `powershell -ExecutionPolicy Bypass -File run_app.ps1`. The sidebar shows the mode, each role's provider and model, the red-team toggle, the kill switch, and Check keys.
 - Search reads SAM.gov, SEC EDGAR, and City of Phoenix permits. Offline replays trimmed fixtures. A source that fails does not stop the others.
+- Three more profiles: workflow studio, admin desk, and local-letter sponsors. Each has six synthetic prospects and eight outcome rows. Scoring, the verifier, and approval are unchanged. The picker uses `menu_order` so the original profile stays first.
 - 108 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`.
 - Published on `main` at https://github.com/driaialchemy/leadgenerator.
 
 ## Next
 
-Income-model profiles are next. Wait for "approved push" before pushing.
+The class page rebuild is next. Wait for "approved push" before pushing.
 
 ## Known issues
 

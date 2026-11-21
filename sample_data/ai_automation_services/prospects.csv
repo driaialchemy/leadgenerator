@@ -1,0 +1,7 @@
+prospect_id,profile_id,contact_name,organization,email,region,source,last_engaged_days,consent_status,do_not_contact,notes,staff_count,tools_in_use,manual_task
+AUTO-001,ai_automation_services,Lila Ortega,Paperlane Books,lila.ortega@example.com,Mesa,referral,10,opt_in,false,"Office copies each invoice into a spreadsheet by hand. Wants that weekly copy step mapped.",8,spreadsheets,invoicing
+AUTO-002,ai_automation_services,Jonah Peck,Brightcart Supply,jonah.peck@example.com,Tempe,web_form,20,opt_in,false,"Scheduling still lives in a shared spreadsheet. Asked what the upside of automating that weekly schedule would look like.",12,spreadsheets,scheduling
+AUTO-003,ai_automation_services,Nia Shah,Kindred Intake Desk,nia.shah@example.com,Chandler,referral,8,opt_in,false,"New client intake arrives as email threads. Asked for guaranteed results before booking a session.",15,chat_tool,intake
+AUTO-004,ai_automation_services,Owen Briggs,Redcanyon Market,owen.briggs@example.com,Peoria,cold_list,40,opt_in,false,"Bought list. Reporting is already in a custom tool.",8,spreadsheets,reporting
+AUTO-005,ai_automation_services,Pat Solis,Solis Hardware,pat.solis@example.com,Scottsdale,referral,5,opt_in,true,"Asked to be removed from all outreach last month.",10,spreadsheets,invoicing
+AUTO-006,ai_automation_services,Gale Nguyen,Wideform Retail,gale.nguyen@example.com,Glendale,cold_list,120,existing_relationship,false,"Bought list. No contact history.",80,custom_platform,reporting

@@ -1,0 +1,10 @@
+{
+  "prospect_id": "NEWS-003",
+  "subject_id": "SUB-NEWS-01",
+  "claim_ids": [
+    "VP-NEWS-01",
+    "VP-NEWS-04"
+  ],
+  "hook": "You mentioned a sponsor slot.",
+  "bridge": "A set end date is part of the offer for {{organization}}:"
+}
