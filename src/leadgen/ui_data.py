@@ -57,7 +57,7 @@ def kill_message(root: Path | None = None) -> str:
 def role_rows() -> list[dict]:
     mode = current_mode()
     rows = []
-    for role in ("tailor", "drafter", "evaluator"):
+    for role in ("tailor", "drafter", "evaluator", "translator", "reason"):
         provider, model, _key_name = role_config(role)
         rows.append({"role": role, "provider": provider, "model": model, "mode": mode})
     return rows
@@ -188,6 +188,90 @@ def evaluation_view(run_dir: Path) -> dict | None:
     data = json.loads(path.read_text(encoding="utf-8"))
     data["bar"] = load_pipeline_config().evaluator_pass_score
     return data
+
+
+def contact_channels(run_dir: Path) -> list[str]:
+    """Channels saved with the run. An empty email is stated, not invented."""
+    path = Path(run_dir) / "prospect.json"
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    lines = []
+    name = str(data.get("contact_name") or "").strip()
+    title = str(data.get("contact_title") or "").strip()
+    if name:
+        lines.append(f"Point of contact: {name}" + (f", {title}" if title else ""))
+    address = str(data.get("mailing_address") or "").strip()
+    if address:
+        lines.append(f"Mailing address: {address}")
+    phone = str(data.get("phone") or "").strip()
+    if phone:
+        lines.append(f"Phone: {phone}")
+    if not str(data.get("email") or "").strip():
+        lines.append("No email on record")
+    return lines
+
+
+def search_view(outcome) -> dict:
+    """Summary, table rows, and the prospects the page can add."""
+    from leadgen.sources.records import SOURCE_LABELS
+
+    rows = []
+    prospects = []
+    for hit in outcome.hits:
+        rows.append(
+            {
+                "business": hit.business_name,
+                "label": hit.label,
+                "stale": "Stale record" if hit.stale else "",
+                "source": SOURCE_LABELS.get(hit.source, hit.source),
+                "why": hit.reason,
+                "prospect_id": hit.prospect_id,
+                "url": hit.record.source_url,
+            }
+        )
+        prospects.append(
+            {"prospect_id": hit.prospect_id, "prospect": hit.prospect.model_dump(mode="json")}
+        )
+    summary = (
+        f"{outcome.total_matches} matches, {outcome.named_contacts} named contacts, "
+        f"{outcome.shown} shown, {outcome.held_back} held back"
+    )
+    filt = outcome.filter
+    parts = [f"sources: {', '.join(filt.sources)}"]
+    for label, value in (
+        ("naics", ", ".join(filt.naics)),
+        ("state", filt.state),
+        ("city", filt.city),
+        ("business type", filt.business_type),
+        ("permit type", filt.permit_type),
+        ("area", filt.area),
+        ("from", filt.date_from),
+        ("to", filt.date_to),
+    ):
+        if value:
+            parts.append(f"{label}: {value}")
+    return {
+        "summary": summary,
+        "rows": rows,
+        "prospects": prospects,
+        "messages": list(outcome.messages),
+        "unsupported": [f"not available in public records: {item}" for item in outcome.unsupported],
+        "held_back_note": f"Held back: {outcome.held_back}. Those records are not shown.",
+        "filter": "; ".join(parts),
+        "filter_values": {
+            "naics": ", ".join(filt.naics),
+            "permit_type": filt.permit_type,
+            "city": filt.city,
+            "state": filt.state,
+            "date_from": filt.date_from,
+            "date_to": filt.date_to,
+            "business_type": filt.business_type,
+            "area": filt.area,
+            "sources": list(filt.sources),
+        },
+        "unsupported_raw": list(outcome.unsupported),
+    }
 
 
 def draft_fields(run_dir: Path) -> dict:

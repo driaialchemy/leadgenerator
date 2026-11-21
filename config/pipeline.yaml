@@ -9,6 +9,8 @@ max_revisions: 1
 evaluator_pass_score: 4
 max_ai_words: 90
 max_claims: 2
+source_record_cap: 10
+source_cache_hours: 24
 exclusions:
   do_not_contact_is: true
   consent_status_is:

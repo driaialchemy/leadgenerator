@@ -1,0 +1,11 @@
+{
+  "cik": "0000000100",
+  "name": "Northwind Example LLC",
+  "filings": {
+    "recent": {
+      "filingDate": ["2026-08-01", "2024-01-15"],
+      "form": ["10-K", "8-K"],
+      "accessionNumber": ["0000000100-26-000001", "0000000100-24-000008"]
+    }
+  }
+}

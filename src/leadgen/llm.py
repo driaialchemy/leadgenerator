@@ -66,6 +66,8 @@ _DEFAULTS = {
     "tailor": ("google", "gemini-4-argon"),
     "drafter": ("anthropic", "claude-fable-5-2"),
     "evaluator": ("openai", "gpt-6.2-astra"),
+    "translator": ("google", "gemini-4-argon"),
+    "reason": ("google", "gemini-4-argon"),
 }
 _KEYS = {
     "google": "GOOGLE_API_KEY",
@@ -121,7 +123,8 @@ def role_config(role: str) -> tuple[str, str, str]:
 def scrub(text: str) -> str:
     """Remove key values from a string before it is printed or stored."""
     cleaned = text
-    for name in _KEYS.values():
+    names = list(_KEYS.values()) + ["SAM_API_KEY", "LEADGEN_EDGAR_USER_AGENT"]
+    for name in names:
         value = os.environ.get(name, "").strip()
         if len(value) >= 8:
             cleaned = cleaned.replace(value, "")

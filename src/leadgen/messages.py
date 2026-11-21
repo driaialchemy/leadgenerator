@@ -64,6 +64,37 @@ def evaluator_prompt(persona: str, rendered: str) -> str:
     return "\n".join(lines)
 
 
+def translator_prompt(profile: Profile, request: str) -> str:
+    """The request plus the profile's source allowlists. No prospect email."""
+    lines = [
+        _file("translator"),
+        "",
+        "Request:",
+        request.strip(),
+        "",
+        "Allowed sources:",
+    ]
+    for spec in profile.search.sources:
+        lines.append(f"{spec.id}: {spec.role}")
+    lines.extend(
+        [
+            "",
+            "Allowed naics: " + ", ".join(profile.search.naics),
+            "Allowed states: " + ", ".join(profile.search.states),
+            "Allowed cities: " + ", ".join(profile.search.cities),
+            "Allowed business types: " + ", ".join(profile.search.business_types),
+            "Allowed permit types: " + ", ".join(profile.search.permit_types),
+            "Allowed areas: " + ", ".join(profile.search.areas),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def reason_prompt(request: str, facts: str) -> str:
+    """The request and the record's own fields. Nothing is added."""
+    return "\n".join([_file("reason"), "", "Request:", request.strip(), "", "Facts:", facts])
+
+
 def format_rendered(subject: str, body: str) -> str:
     return f"Subject: {subject}\n\n{body}\n"
 

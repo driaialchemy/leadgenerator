@@ -62,3 +62,26 @@ banned_phrases:
   - "$"
   - "Re:"
   - "Fwd:"
+search:
+  examples:
+    - Recent building permits in Phoenix
+    - Phoenix permits with a contractor
+    - Building permits in Phoenix
+    - A contractor with a public registration
+  naics: []
+  states:
+    - AZ
+  cities:
+    - Phoenix
+  business_types: []
+  permit_types:
+    - Building
+  areas:
+    - Phoenix
+  sources:
+    - id: phoenix_permits
+      freshness_days: 180
+      role: search
+    - id: sam
+      freshness_days: 400
+      role: lookup

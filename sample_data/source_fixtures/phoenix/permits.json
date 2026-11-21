@@ -1,0 +1,40 @@
+{
+  "features": [
+    {
+      "attributes": {
+        "RECORD_ID": "1001",
+        "PERMIT_NUMBER": "B2026-1001",
+        "PERMIT_TYPE": "Building",
+        "PROJECT": "Office remodel",
+        "ADDRESS": "100 Public Way, Phoenix, AZ",
+        "PERMIT_ISSUE_DATE": "2026-09-01",
+        "CONTACT": "Ada Lovelace",
+        "OWNER_NAME": "Northwind Example LLC"
+      }
+    },
+    {
+      "attributes": {
+        "RECORD_ID": "1002",
+        "PERMIT_NUMBER": "B2025-1002",
+        "PERMIT_TYPE": "Building",
+        "PROJECT": "Older remodel",
+        "ADDRESS": "300 Public Way, Phoenix, AZ",
+        "PERMIT_ISSUE_DATE": "2025-01-01",
+        "CONTACT": "Pat Old",
+        "OWNER_NAME": "Old Registration LLC"
+      }
+    },
+    {
+      "attributes": {
+        "RECORD_ID": "1003",
+        "PERMIT_NUMBER": "E2026-1003",
+        "PERMIT_TYPE": "Electrical",
+        "PROJECT": "Panel change",
+        "ADDRESS": "100 Public Way, Phoenix, AZ",
+        "PERMIT_ISSUE_DATE": "2026-09-15",
+        "CONTACT": "Ada Lovelace",
+        "OWNER_NAME": "Northwind Example LLC"
+      }
+    }
+  ]
+}

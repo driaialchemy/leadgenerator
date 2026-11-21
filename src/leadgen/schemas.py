@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-Source = Literal["referral", "web_form", "event", "cold_list"]
+Source = Literal["referral", "web_form", "event", "cold_list", "sam", "edgar", "phoenix_permits"]
 ConsentStatus = Literal["opt_in", "existing_relationship", "none"]
 Stage = Literal["sent", "replied", "meeting", "won", "lost_after_meeting"]
 AttributeType = Literal["int", "str"]
@@ -27,6 +27,9 @@ class Prospect(BaseModel):
     do_not_contact: bool
     notes: str
     attributes: dict[str, int | str]
+    phone: str = ""
+    mailing_address: str = ""
+    contact_title: str = ""
 
 
 class Outcome(BaseModel):
@@ -122,6 +125,31 @@ class NoteCheck(BaseModel):
         return self
 
 
+class SourceSpec(BaseModel):
+    """One public-record source configured on a profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    freshness_days: int = Field(ge=1)
+    role: Literal["search", "lookup", "enrich"]
+
+
+class SearchConfig(BaseModel):
+    """Allowlists and sources for a plain-language search. Empty means unused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    examples: list[str] = Field(default_factory=list)
+    naics: list[str] = Field(default_factory=list)
+    states: list[str] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
+    business_types: list[str] = Field(default_factory=list)
+    permit_types: list[str] = Field(default_factory=list)
+    areas: list[str] = Field(default_factory=list)
+    sources: list[SourceSpec] = Field(default_factory=list)
+
+
 class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -137,6 +165,7 @@ class Profile(BaseModel):
     note_checks: list[NoteCheck]
     banned_phrases: list[str]
     buyer_persona: str
+    search: SearchConfig = Field(default_factory=SearchConfig)
 
 
 class TierBounds(BaseModel):
@@ -168,6 +197,8 @@ class PipelineConfig(BaseModel):
     evaluator_pass_score: int = Field(ge=1, le=5)
     max_ai_words: int = Field(ge=10)
     max_claims: int = Field(ge=1)
+    source_record_cap: int = Field(default=10, ge=1, le=25)
+    source_cache_hours: int = Field(default=24, ge=1)
     exclusions: Exclusions
 
     @model_validator(mode="after")
@@ -314,6 +345,9 @@ EventType = Literal[
     "refusal",
     "kill_switch_block",
     "error",
+    "search",
+    "source_call",
+    "add_to_pipeline",
 ]
 
 
@@ -339,6 +373,9 @@ class FlightEvent(BaseModel):
     retry_reason: str | None = None
     input_sha256: str | None = None
     output_path: str | None = None
+    endpoint: str | None = None
+    record_count: int | None = None
+    cache_hit: bool | None = None
     status: Literal["ok", "fail", "blocked"]
     detail: str
 

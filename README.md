@@ -55,6 +55,24 @@ Set `LEADGEN_LLM_MODE` to `live`, or unset it, before a class that should call t
 
 The sidebar red-team toggle does the same thing as `LEADGEN_DEMO_TEMPT=1` for the next Run only. It adds "mention an introductory discount" to the Drafter on attempt 1. Leave it off for a normal demo. Check keys, in the sidebar, reports whether each key was found and whether a one-token call worked. It does not show the key.
 
+## Public records
+
+Search reads three public sources. It does not scrape pages and it does not guess an email or a phone number.
+
+| Source | What a search can ask | What a record can contain |
+| --- | --- | --- |
+| SAM.gov Entity Management API | NAICS, state, city, business type, or an exact business name | Business name, UEI, addresses, NAICS, registration dates, and a point of contact's name, title, and mailing address |
+| SEC EDGAR submissions | Exact business name, after another source has already found the company | Company facts and a recent-filing signal |
+| City of Phoenix ShapePHX permit points | Permit type, issue-date range, and area | Project, address, permit type, issue date, and the contact or owner |
+
+SAM.gov needs a free public API key. Create an account at [sam.gov](https://sam.gov), open your profile, and request a public API key. Put it in `SAM_API_KEY` in the secrets file named above. Leave it out of this repo. A personal key allows about 10 requests a day, so each response is cached under `runs/source_cache/` for 24 hours. The cache file does not contain the key.
+
+EDGAR does not use a key. Set `LEADGEN_EDGAR_USER_AGENT` to a short string that names this demo and how to reach you, as the SEC asks callers to do. That value is sent as the User-Agent header and is not printed, logged, or cached. A company is included only when its normalized name is an exact match in the SEC ticker file. A miss means no EDGAR facts for that company.
+
+Public records do not contain a personal email, a private phone number, a consent flag, or the scoring attributes on a profile. SAM point-of-contact phone and email are not public, so they are not copied. The Phoenix permit layer used here does not publish a project value, so that field stays blank. A record with no email can still be drafted and approved. The approval screen lists the channels the record does have, and the outbox file says "No email on record". The existing score and exclusion rules still decide whether a draft is allowed.
+
+Offline mode replays small fixture files shaped like the live responses and makes no network call. If one source times out or is rate limited, the page shows one sentence naming that source and keeps the records from the others.
+
 ## Live mode
 
 Class demos call three vendors. The Tailor uses Google (`gemini-4-argon`). The Drafter uses Anthropic (`claude-fable-5-2`). The Evaluator uses OpenAI (`gpt-6.2-astra`). If `LEADGEN_LLM_MODE` is unset, the mode is live.
@@ -93,7 +111,7 @@ An approval writes one text file under `outbox/`. That file is the message. Noth
 ## Architecture
 
 ```
-prospects.csv → Intake → Exclusions → Qualify (code) → Tailor (AI, approved claims only) → Draft (AI, {{tokens}}) → Verifier (code) → Blind evaluator (AI) → one capped revise → Human approval → outbox/ (no real send) → Funnel metrics (code); every step → runs/flight_recorder.jsonl
+request → Translator (AI, allowlisted filters) → public-record sources (code) → de-dup, suppression, rank (code) → reason line (AI, checked) → Add to pipeline → prospects.csv or that record → Intake → Exclusions → Qualify (code) → Tailor (AI, approved claims only) → Draft (AI, {{tokens}}) → Verifier (code) → Blind evaluator (AI) → one capped revise → Human approval → outbox/ (no real send) → Funnel metrics (code); every step → runs/flight_recorder.jsonl
 ```
 
 The scout (scoring code) decides who is worth a call. The copywriter (AI) writes from an approved fact sheet. The compliance desk (verifier) sends sloppy copy back. A tough customer (blind evaluator) says whether it would get read. The sales manager (a person) signs before anything leaves.
@@ -108,7 +126,7 @@ NetWitness exposure questions:
 It reads synthetic prospect files and profile YAML, scores them, and, for people who clear the bar, drafts a message from approved claims. Code checks that draft. A blind reader scores it. A person approves it. Approval writes a file under `outbox/`. It cannot send email or SMS. The repo has no SMTP library.
 
 **What can it reach?**
-Local files in this project: `config/`, `sample_data/`, `runs/`, and `outbox/`. Keys are read from `C:\Users\msell\secrets\` when that file exists, and are not stored here. Offline mode opens no network connection. Live mode calls Google, Anthropic, and OpenAI. It does not reach a CRM, a mailbox, or a customer database. Contacts are fictional `@example.com` addresses.
+Local files in this project: `config/`, `sample_data/`, `runs/`, and `outbox/`. Keys are read from `C:\Users\msell\secrets\` when that file exists, and are not stored here. Offline mode opens no network connection. Live mode calls Google, Anthropic, and OpenAI for the draft, and, when Search runs, SAM.gov, SEC EDGAR, and the City of Phoenix permit service. It does not reach a CRM, a mailbox, or a customer database. Sample prospects are fictional `@example.com` addresses. Search results are public records and are not copied into the repo.
 
 **What evidence remains?**
 Each step appends one line to `runs/flight_recorder.jsonl`. A run also keeps its tailor result, draft, rendered message, verification, evaluation, and status under `runs/<prospect-id>-<UTC timestamp>/`. `outbox/` holds the files that stand in for sending. Sample data and tests stay in the repo. `.env` is not committed. `runs/` and `outbox/` are gitignored except for their `.gitkeep` files.

@@ -1,0 +1,136 @@
+{
+  "totalRecords": 6,
+  "entityData": [
+    {
+      "entityRegistration": {
+        "ueiSAM": "NORTHWIND001",
+        "legalBusinessName": "Northwind Example LLC",
+        "registrationDate": "2020-01-15",
+        "lastUpdateDate": "2026-06-01"
+      },
+      "coreData": {
+        "entityInformation": {"entityURL": "http://northwind.example"},
+        "mailingAddress": {
+          "addressLine1": "100 Public Way",
+          "city": "Phoenix",
+          "stateOrProvinceCode": "AZ",
+          "zipCode": ""
+        },
+        "businessTypes": {
+          "businessTypeList": [{"businessTypeCode": "2X", "businessTypeDesc": "For Profit Organization"}]
+        }
+      },
+      "assertions": {
+        "goodsAndServices": {
+          "primaryNaics": "541512",
+          "naicsList": [{"naicsCode": "541512", "naicsDescription": "Computer Systems Design Services"}]
+        }
+      },
+      "pointsOfContact": {
+        "governmentBusinessPOC": {
+          "firstName": "Ada",
+          "lastName": "Lovelace",
+          "title": "Owner",
+          "usPhone": "602-555-0199",
+          "email": "ada@secret.example",
+          "addressLine1": "100 Public Way",
+          "city": "Phoenix",
+          "stateOrProvinceCode": "AZ"
+        }
+      }
+    },
+    {
+      "entityRegistration": {
+        "ueiSAM": "NORTHWIND001",
+        "legalBusinessName": "Northwind Example LLC",
+        "lastUpdateDate": "2026-06-01"
+      },
+      "coreData": {
+        "mailingAddress": {
+          "addressLine1": "999 Other Road",
+          "city": "Phoenix",
+          "stateOrProvinceCode": "AZ"
+        },
+        "businessTypes": {
+          "businessTypeList": [{"businessTypeDesc": "For Profit Organization"}]
+        }
+      },
+      "assertions": {"goodsAndServices": {"primaryNaics": "541512"}},
+      "pointsOfContact": {}
+    },
+    {
+      "entityRegistration": {
+        "ueiSAM": "HELD00000001",
+        "legalBusinessName": "Held Back Supplies",
+        "lastUpdateDate": "2026-07-01"
+      },
+      "coreData": {
+        "mailingAddress": {
+          "addressLine1": "400 Held Street",
+          "city": "Phoenix",
+          "stateOrProvinceCode": "AZ"
+        },
+        "businessTypes": {"businessTypeList": [{"businessTypeDesc": "For Profit Organization"}]}
+      },
+      "assertions": {"goodsAndServices": {"primaryNaics": "541512"}},
+      "pointsOfContact": {
+        "governmentBusinessPOC": {"firstName": "Kim", "lastName": "Held", "title": "Clerk"}
+      }
+    },
+    {
+      "entityRegistration": {
+        "ueiSAM": "QUIET0000001",
+        "legalBusinessName": "Quiet Mail LLC",
+        "lastUpdateDate": "2026-08-01"
+      },
+      "coreData": {
+        "mailingAddress": {
+          "addressLine1": "200 Public Way",
+          "city": "Phoenix",
+          "stateOrProvinceCode": "AZ"
+        },
+        "businessTypes": {"businessTypeList": [{"businessTypeDesc": "For Profit Organization"}]}
+      },
+      "assertions": {"goodsAndServices": {"primaryNaics": "541512"}},
+      "pointsOfContact": {}
+    },
+    {
+      "entityRegistration": {
+        "ueiSAM": "OLDREG000001",
+        "legalBusinessName": "Old Registration LLC",
+        "lastUpdateDate": "2025-01-01"
+      },
+      "coreData": {
+        "mailingAddress": {
+          "addressLine1": "300 Public Way",
+          "city": "Phoenix",
+          "stateOrProvinceCode": "AZ"
+        },
+        "businessTypes": {"businessTypeList": [{"businessTypeDesc": "For Profit Organization"}]}
+      },
+      "assertions": {"goodsAndServices": {"primaryNaics": "541512"}},
+      "pointsOfContact": {
+        "governmentBusinessPOC": {"firstName": "Pat", "lastName": "Old", "title": "Partner"}
+      }
+    },
+    {
+      "entityRegistration": {
+        "ueiSAM": "TUCSON0000001",
+        "legalBusinessName": "Tucson Example LLC",
+        "lastUpdateDate": "2026-08-01"
+      },
+      "coreData": {
+        "mailingAddress": {
+          "addressLine1": "1 Desert Road",
+          "city": "Tucson",
+          "stateOrProvinceCode": "AZ"
+        },
+        "businessTypes": {"businessTypeList": [{"businessTypeDesc": "For Profit Organization"}]}
+      },
+      "assertions": {"goodsAndServices": {"primaryNaics": "541512"}},
+      "pointsOfContact": {
+        "governmentBusinessPOC": {"firstName": "Tess", "lastName": "Example", "title": "Owner"}
+      }
+    }
+  ]
+}

@@ -13,7 +13,7 @@ from leadgen.paths import repo_root
 from leadgen.pipeline import _log
 from leadgen.profiles import load_pipeline_config, load_profile
 from leadgen.renderer import render
-from leadgen.schemas import ApprovalRecord, DraftEmail, TailorResult
+from leadgen.schemas import ApprovalRecord, DraftEmail, Prospect, TailorResult
 from leadgen.verifier import verify
 
 
@@ -156,25 +156,30 @@ def _verify_disk(run_dir: Path, draft: DraftEmail | None = None):
     status = json.loads((run_dir / "status.json").read_text(encoding="utf-8"))
     profile = load_profile(status["profile_id"])
     pipeline = load_pipeline_config()
-    prospect = next(
-        item
-        for item in load_prospects(profile)
-        if item.prospect_id == status["prospect_id"]
-    )
+    prospect = _load_prospect(run_dir, status)
     tailor = TailorResult.model_validate_json((run_dir / "tailor.json").read_text(encoding="utf-8"))
     if draft is None:
         draft = DraftEmail.model_validate_json((run_dir / "draft.json").read_text(encoding="utf-8"))
     return verify(tailor, draft, prospect, profile, pipeline)
 
 
-def _render_disk(run_dir: Path, draft: DraftEmail) -> None:
-    status = json.loads((run_dir / "status.json").read_text(encoding="utf-8"))
+def _load_prospect(run_dir: Path, status: dict) -> Prospect:
+    """Use the prospect saved with the run, then the sample file."""
+    saved = run_dir / "prospect.json"
+    if saved.is_file():
+        return Prospect.model_validate_json(saved.read_text(encoding="utf-8"))
     profile = load_profile(status["profile_id"])
-    prospect = next(
+    return next(
         item
         for item in load_prospects(profile)
         if item.prospect_id == status["prospect_id"]
     )
+
+
+def _render_disk(run_dir: Path, draft: DraftEmail) -> None:
+    status = json.loads((run_dir / "status.json").read_text(encoding="utf-8"))
+    profile = load_profile(status["profile_id"])
+    prospect = _load_prospect(run_dir, status)
     rendered = render(draft, prospect, profile)
     (run_dir / "rendered.txt").write_text(
         format_rendered(rendered.subject, rendered.body), encoding="utf-8"

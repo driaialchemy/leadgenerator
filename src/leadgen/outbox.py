@@ -10,6 +10,11 @@ def write_outbox(run_dir: Path, root: Path) -> Path:
     if approval["decision"] not in {"APPROVED", "EDITED"}:
         raise RuntimeError("Only an approved decision can be written to the outbox.")
     body = (run_dir / "rendered.txt").read_text(encoding="utf-8")
+    saved = run_dir / "prospect.json"
+    if saved.is_file():
+        email = str(json.loads(saved.read_text(encoding="utf-8")).get("email") or "")
+        if not email.strip():
+            body = body.rstrip() + "\n\nNo email on record\n"
     dest_dir = root / "outbox"
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"{run_dir.name}.txt"

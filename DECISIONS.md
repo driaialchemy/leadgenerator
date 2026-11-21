@@ -142,3 +142,13 @@ A named person chooses `APPROVED`, `EDITED`, or `REJECTED`. Findings must be ack
 The page is layout only. `ui_data.py` shapes the ranked table, attempt comparison, logbook, and outbox list. `run_prospect` accepts an optional progress callback and still writes the same files. A model call happens only when Run is pressed. The red-team toggle sets `LEADGEN_DEMO_TEMPT` for that click only.
 
 Runs and the outbox go to `LEADGEN_DATA_ROOT` when that variable is set, and to the repo root otherwise. Profiles, prompts, and sample files still come from the repo. Tests point the data root at a temp folder. The theme and the three processed photos live in this repo. Each photo is under 150 KB.
+
+## 2026-11-20 — Public-record search
+
+Search reads three public sources through one adapter shape: source name, source record id, source URL, and record date. The profile YAML names which sources to use and how fresh each one is. SAM.gov uses 400 days and its last-update date. Phoenix permits and EDGAR use 180 days.
+
+SAM.gov is the Entity Management API, public sections only, with `SAM_API_KEY`. Responses cache under `runs/source_cache/` for 24 hours. The cache key and the file omit the API key. EDGAR matches `company_tickers.json` by exact normalized business name and does not guess. Phoenix uses the published ShapePHX permit points. That layer has no valuation, so value stays blank.
+
+A stale record is a flag beside the main label. The label is Named contact, Business phone on record, or Mailing address only, and only when the record contains that channel. Records are de-duplicated on UEI, or on name plus address, before suppression and ranking. Suppression matches business name, domain, or UEI.
+
+A prospect with no email still runs through the existing pipeline. The draft is verified as before. The approval screen shows the channels on the record. The outbox file adds the line "No email on record". Scoring, verifier, and approval rules are unchanged. The flight recorder adds `search`, `source_call`, and `add_to_pipeline`.

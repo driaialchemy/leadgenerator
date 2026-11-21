@@ -1,0 +1,12 @@
+{
+  "sources": ["phoenix_permits", "sam"],
+  "naics": [],
+  "state": "AZ",
+  "city": "Phoenix",
+  "business_type": "",
+  "permit_type": "Building",
+  "date_from": "2026-05-24",
+  "date_to": "2026-11-20",
+  "area": "Phoenix",
+  "unsupported": []
+}

@@ -112,6 +112,9 @@ def _run_prospect(
     run_id = f"{prospect.prospect_id}-{stamp}"
     run_dir = folder / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "prospect.json").write_text(
+        prospect.model_dump_json(indent=2), encoding="utf-8"
+    )
     budget = _Budget(folder, run_id)
     findings = run_note_checks(prospect, profile)
 

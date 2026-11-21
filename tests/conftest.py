@@ -20,5 +20,11 @@ def offline_env(monkeypatch, tmp_path):
         "LEADGEN_DRAFTER_MODEL",
         "LEADGEN_EVALUATOR_PROVIDER",
         "LEADGEN_EVALUATOR_MODEL",
+        "LEADGEN_TRANSLATOR_PROVIDER",
+        "LEADGEN_TRANSLATOR_MODEL",
+        "LEADGEN_REASON_PROVIDER",
+        "LEADGEN_REASON_MODEL",
+        "SAM_API_KEY",
+        "LEADGEN_EDGAR_USER_AGENT",
     ):
         monkeypatch.delenv(name, raising=False)

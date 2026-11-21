@@ -40,7 +40,7 @@ File and record writes are single-threaded.
 
 ## Data
 
-Synthetic data only, never real contacts.
+Sample prospects are synthetic. Live search reads public-record APIs and caches responses under `runs/`, which is gitignored. It does not copy those records into the repo.
 
 ## Secrets
 

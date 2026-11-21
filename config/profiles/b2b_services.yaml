@@ -61,3 +61,26 @@ banned_phrases:
   - "$"
   - "Re:"
   - "Fwd:"
+search:
+  examples:
+    - Registered firms in Phoenix
+    - Phoenix firms with a public filing
+    - For-profit firms in Arizona
+    - A named contact at a Phoenix firm
+  naics:
+    - "541512"
+  states:
+    - AZ
+  cities:
+    - Phoenix
+  business_types:
+    - For Profit Organization
+  permit_types: []
+  areas: []
+  sources:
+    - id: sam
+      freshness_days: 400
+      role: search
+    - id: edgar
+      freshness_days: 180
+      role: enrich
