@@ -10,7 +10,7 @@ from leadgen.paths import repo_root
 
 APP = repo_root() / "src" / "leadgen" / "app.py"
 SECRET = "unit-test-key-value-9f3a"
-TITLES = ("Shortlist", "Run", "Review", "Outbox", "Logbook", "Funnel")
+TITLES = ("Shortlist", "Draft", "Review", "Send", "Logbook", "Funnel")
 
 
 def test_no_image_is_rendered_or_shipped(monkeypatch, tmp_path):

@@ -168,3 +168,11 @@ The screen is layout. Search, scoring, the verifier, and approval are unchanged.
 The sidebar is the business and Practice data or Live. A red notice appears only when the kill switch is on. Check keys and the red-team toggle are on Settings. Check keys still does not show a key. The stored status file still says `PENDING_APPROVAL`. The page says "Waiting for your approval".
 
 The theme is light. It lives in `.streamlit/config.toml` and `ui_theme.py`. Text on each surface meets a 4.5 contrast ratio. The page does not render an image, and the repo does not ship one. The earlier light-on-white inputs came from a light text color painted on the whole page, which the white inputs inherited.
+
+## 2026-11-20 — Guided wizard
+
+The class page is five steps: Find, Shortlist, Draft, Review, and Send. A step that is not ready stays put and says why. The current step has one primary button. Logbook, Funnel, and Settings stay in the main area and open from More, so Check keys and the red-team toggle are not sidebar widgets.
+
+The counts are businesses found, the ranked shortlist, drafts still waiting, approved decisions, and outbox files. A run that already has `approval.json` is not counted as waiting. The stored status file is still `PENDING_APPROVAL`.
+
+White text failed the 4.5 ratio on the bright teal, green, amber, and coral, so those fills are a darker shade of the same hue. The waiting chip keeps the bright amber and uses dark text. The current step, the primary button, and the disabled primary button set their own text color, so the page color does not cover them. Icons are inline SVG. The page still does not ship a picture.

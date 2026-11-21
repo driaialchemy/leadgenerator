@@ -44,13 +44,13 @@ Launch the walkthrough from this folder:
 powershell -ExecutionPolicy Bypass -File run_app.ps1
 ```
 
-The page title is Lead & Income Finder. The strip under it reads Find, Score, Draft, Check, Approve. The buttons along the top are Search, Shortlist, Run, Review, Outbox, Logbook, Funnel, and Settings. Each step opens with one sentence and ends with Next when there is something to carry forward.
+The page title is Lead & Income Finder. Five steps sit under it: Find, Shortlist, Draft, Review, and Send. The step you are on is blue. A finished step is green. A step that is not ready yet is gray, and it tells you why. Each step has one main button. Find says Search until a list comes back, then Next. Logbook, Funnel, and Settings are under More in the sidebar.
 
-The sidebar has two controls. Business is the profile, shown by its display name. Data mode is Practice data or Live. Practice data uses the saved examples. Live calls the accounts. A red notice appears in the sidebar only when the kill switch is on.
+Five counts sit under the title: businesses found, people on the shortlist, drafts waiting, notes you approved, and files saved. Practice data uses the saved examples. Live calls the accounts. A red notice appears in the sidebar only when the kill switch is on.
 
-On Search, type a request or press an example. The example fills the box and runs the search. The result names the business, how to reach them, and why they fit. A stale record is marked. Change a field and press Update results to run that search again. Add to pipeline, then Next.
+On Find, type a request or press an example. The example fills the box and runs the search. The result names the business, how to reach them, and why they fit. A stale record is marked. Change a field and press Update results to run that search again. Add to pipeline, then Next.
 
-Shortlist is the ranked list. Run numbers the steps in plain language and ends on "Waiting for your approval". Review is where you type your name, acknowledge any findings, and approve, edit, or reject. Approve writes one file under `outbox/`. Nothing is emailed. The logbook is the record of that run, in plain language. The files on disk keep their codes.
+Shortlist is the ranked list. Draft numbers the steps in plain language and ends on "Waiting for your approval". Review is where you type your name, acknowledge any findings, and approve, edit, or reject. Approve writes one file under `outbox/`. Nothing is emailed. The logbook is the record of that run, in plain language. The files on disk keep their codes.
 
 Live is the class default, which is what the launcher uses when `LEADGEN_LLM_MODE` is unset. Offline is the no-Wi-Fi backup:
 

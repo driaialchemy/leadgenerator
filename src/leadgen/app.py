@@ -34,9 +34,10 @@ from leadgen.ui_data import (
     run_steps,
     search_view,
     status_badge,
+    summary_tiles,
     tier_label,
 )
-from leadgen.ui_theme import apply_theme
+from leadgen.ui_theme import apply_theme, icon
 
 STEPS = (
     "search",
@@ -48,15 +49,23 @@ STEPS = (
     "funnel",
     "settings",
 )
-STEP_LABELS = {
-    "search": "Search",
-    "shortlist": "Shortlist",
-    "run": "Run",
-    "review": "Review",
-    "outbox": "Outbox",
-    "logbook": "Logbook",
-    "funnel": "Funnel",
-    "settings": "Settings",
+WIZARD = ("search", "shortlist", "run", "review", "outbox")
+WIZARD_LABELS = {
+    "search": "1 Find",
+    "shortlist": "2 Shortlist",
+    "run": "3 Draft",
+    "review": "4 Review",
+    "outbox": "5 Send",
+}
+LOCKS = {
+    "run": (
+        "Pick someone on the Shortlist first",
+        "Pick someone on the Shortlist first",
+        "shortlist",
+        "unlock_run",
+    ),
+    "review": ("Nothing to review yet", "Go to Draft", "run", "unlock_review"),
+    "outbox": ("Nothing sent yet", "Go to Review", "review", "unlock_outbox"),
 }
 FIELD_KIND = "field_kind"
 FIELD_LOCATION = "field_location"
@@ -74,10 +83,17 @@ def main() -> None:
     root = data_root()
     killed = kill_message(root)
     profile_id = _sidebar(killed)
-    st.title("Lead & Income Finder")
-    st.caption("Find a business, draft a note from approved facts, and sign it before anything is saved.")
-    st.markdown('<p class="step-strip">Find · Score · Draft · Check · Approve</p>', unsafe_allow_html=True)
-    _step_buttons()
+    _consume_search(root, load_profile(profile_id))
+    _consume_run(root, profile_id)
+    _consume_decision(root, profile_id)
+    st.markdown(
+        '<div class="banner"><h1>Lead &amp; Income Finder</h1>'
+        "<p>Find a business, draft a note from approved facts, and sign it before anything is saved.</p></div>",
+        unsafe_allow_html=True,
+    )
+    _tiles(root, profile_id)
+    _tracker()
+    _lock_note()
     _hide_inactive()
     with _panel("search"):
         _search_tab(root, profile_id, killed)
@@ -108,6 +124,8 @@ def _init_state() -> None:
     st.session_state.setdefault("added_people", [])
     st.session_state.setdefault("search_view", None)
     st.session_state.setdefault("fields_for", "")
+    st.session_state.setdefault("furthest", "search")
+    st.session_state.setdefault("lock_notice", "")
     if "data_mode" not in st.session_state:
         st.session_state.data_mode = "Practice data" if current_mode() == "offline" else "Live"
 
@@ -129,6 +147,10 @@ def _sidebar(killed: str) -> str:
     )
     if killed:
         st.sidebar.error(killed)
+    st.sidebar.markdown("More")
+    st.sidebar.button("Logbook", key="nav_logbook", on_click=_go, args=("logbook",))
+    st.sidebar.button("Funnel", key="nav_funnel", on_click=_go, args=("funnel",))
+    st.sidebar.button("Settings", key="nav_settings", on_click=_go, args=("settings",))
     return profile_id
 
 
@@ -137,21 +159,97 @@ def _apply_mode() -> None:
     os.environ["LEADGEN_LLM_MODE"] = "offline" if choice == "Practice data" else "live"
 
 
-def _step_buttons() -> None:
-    columns = st.columns(len(STEPS))
-    for column, name in zip(columns, STEPS):
+def _tiles(root: Path, profile_id: str) -> None:
+    view = st.session_state.get("search_view") or {}
+    shown = len(view.get("rows") or []) if view.get("profile_id") == profile_id else 0
+    parts = []
+    for tile in summary_tiles(root, profile_id, shown):
+        parts.append(
+            f'<div class="tile tile-{tile["tone"]}">'
+            f'<span class="tile-value">{tile["value"]}</span>'
+            f'<span class="tile-label">{tile["label"]}</span></div>'
+        )
+    st.markdown(f'<div class="tiles">{"".join(parts)}</div>', unsafe_allow_html=True)
+
+
+def _tracker() -> None:
+    columns = st.columns(len(WIZARD))
+    for column, name in zip(columns, WIZARD):
+        state = _marker(name)
         with column:
+            st.markdown(
+                f'<span class="tracker-state" data-step="{name}" data-state="{state}">'
+                f"{icon(state)}</span>",
+                unsafe_allow_html=True,
+            )
             st.button(
-                STEP_LABELS[name],
+                WIZARD_LABELS[name],
                 key=f"nav_{name}",
-                on_click=_go,
+                on_click=_try_go,
                 args=(name,),
-                type="primary" if st.session_state.step == name else "secondary",
             )
 
 
+def _lock_note() -> None:
+    step = st.session_state.get("lock_notice") or ""
+    if step and _ready(step):
+        st.session_state.lock_notice = ""
+        return
+    spec = LOCKS.get(step)
+    if not spec:
+        return
+    reason, label, dest, key = spec
+    st.markdown(reason)
+    st.button(label, key=key, on_click=_go, args=(dest,))
+
+
+def _try_go(step: str) -> None:
+    if _ready(step):
+        _go(step)
+        return
+    st.session_state.lock_notice = step
+
+
+def _ready(step: str) -> bool:
+    if step in {"search", "shortlist", "logbook", "funnel", "settings"}:
+        return True
+    profile_id = st.session_state.get("profile") or ""
+    if step == "run":
+        return bool(profile_id) and bool(prospect_board(profile_id)["eligible_ids"])
+    if step == "review":
+        return bool(st.session_state.get("last_run"))
+    if step == "outbox":
+        return bool(outbox_rows(data_root()))
+    return True
+
+
+def _marker(step: str) -> str:
+    if st.session_state.step == step:
+        return "current"
+    if not _ready(step):
+        return "locked"
+    anchor = st.session_state.step
+    if anchor not in WIZARD:
+        anchor = st.session_state.get("furthest", "search")
+    if anchor in WIZARD and WIZARD.index(step) < WIZARD.index(anchor):
+        return "done"
+    return "ready"
+
+
+def _kind(step: str, chosen: bool) -> str:
+    if st.session_state.step == step and chosen:
+        return "primary"
+    return "secondary"
+
+
 def _go(step: str) -> None:
+    st.session_state.lock_notice = ""
     st.session_state.step = step
+    if step not in WIZARD:
+        return
+    current = st.session_state.get("furthest", "search")
+    if current not in WIZARD or WIZARD.index(step) > WIZARD.index(current):
+        st.session_state.furthest = step
 
 
 def _hide_inactive() -> None:
@@ -179,7 +277,8 @@ def _panel(name: str):
 
 
 def _search_tab(root: Path, profile_id: str, killed: str) -> None:
-    st.header("Search")
+    st.markdown('<div class="step-card step-card-search"><p>1 · Find</p></div>', unsafe_allow_html=True)
+    st.header("Find")
     st.markdown("Describe the businesses you want. Press an example, or type your own and press Search.")
     profile = load_profile(profile_id)
     example = profile.search.examples[0] if profile.search.examples else "Registered firms in Phoenix"
@@ -198,8 +297,15 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
             on_click=_queue_search,
             args=(text,),
         )
-    st.button("Search", key="search", disabled=bool(killed), on_click=_queue_search, type="primary")
-    _consume_search(root, profile)
+    view = st.session_state.get("search_view") or {}
+    searched = view.get("profile_id") == profile_id and bool(view.get("summary"))
+    st.button(
+        "Search",
+        key="search",
+        disabled=bool(killed),
+        on_click=_queue_search,
+        type=_kind("search", not searched),
+    )
     if st.session_state.get("notice"):
         st.error(st.session_state.notice)
     view = st.session_state.get("search_view") or {}
@@ -246,8 +352,9 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
     for item in view.get("prospects") or []:
         if st.button("Add to pipeline", key=f"add_{item['prospect_id']}"):
             _add_person(root, profile_id, item)
-    if rows or st.session_state.added_people:
-        st.button("Next", key="next_search", on_click=_go, args=("shortlist",), type="primary")
+    view = st.session_state.get("search_view") or {}
+    if view.get("profile_id") == profile_id and view.get("summary"):
+        st.button("Next", key="next_search", on_click=_go, args=("shortlist",), type=_kind("search", True))
 
 
 def _queue_search(text: str | None = None) -> None:
@@ -258,6 +365,30 @@ def _queue_search(text: str | None = None) -> None:
 
 def _queue_update() -> None:
     st.session_state.pending_update = True
+
+
+def _queue_run() -> None:
+    st.session_state.pending_run = True
+
+
+def _consume_run(root: Path, profile_id: str) -> None:
+    if not st.session_state.pop("pending_run", False):
+        return
+    added = [
+        item["prospect_id"]
+        for item in st.session_state.get("added_people") or []
+        if item["profile_id"] == profile_id
+    ]
+    board = prospect_board(profile_id)
+    choices = list(board["eligible_ids"]) + [
+        item for item in added if item not in board["eligible_ids"]
+    ]
+    prospect_id = st.session_state.get("prospect")
+    if prospect_id not in choices and choices:
+        prospect_id = choices[0]
+        st.session_state.prospect = choices[0]
+    if prospect_id:
+        _start_run(root, profile_id, prospect_id)
 
 
 def _consume_search(root: Path, profile) -> None:
@@ -358,7 +489,7 @@ def _search_fields(profile, view: dict) -> None:
         placeholder="10",
         help="Example: 10.",
     )
-    st.button("Update results", key="update_results", on_click=_queue_update, type="primary")
+    st.button("Update results", key="update_results", on_click=_queue_update)
 
 
 def _run_search(root: Path, profile, request: str) -> None:
@@ -401,8 +532,9 @@ def _add_person(root: Path, profile_id: str, item: dict) -> None:
 
 
 def _shortlist_tab(profile_id: str) -> None:
+    st.markdown('<div class="step-card step-card-shortlist"><p>2 · Shortlist</p></div>', unsafe_allow_html=True)
     st.header("Shortlist")
-    st.markdown("These are the people the rules ranked. Continue to Run when you want a draft.")
+    st.markdown("These are the people the rules ranked. Continue to Draft when you want a note.")
     board = prospect_board(profile_id)
     if not board["ranked"] and not board["excluded"]:
         st.info("No one to show yet.")
@@ -435,11 +567,12 @@ def _shortlist_tab(profile_id: str) -> None:
     ]
     st.markdown(markdown_table(findings, ["Person", "Note"]))
     if board["eligible_ids"]:
-        st.button("Next", key="next_shortlist", on_click=_go, args=("run",), type="primary")
+        st.button("Next", key="next_shortlist", on_click=_go, args=("run",), type=_kind("shortlist", True))
 
 
 def _run_tab(root: Path, profile_id: str, killed: str) -> None:
-    st.header("Run")
+    st.markdown('<div class="step-card step-card-run"><p>3 · Draft</p></div>', unsafe_allow_html=True)
+    st.header("Draft")
     st.markdown("Pick a person and press Run. The steps below say what happened.")
     added = [
         item
@@ -462,18 +595,24 @@ def _run_tab(root: Path, profile_id: str, killed: str) -> None:
     choices = eligible + extra
     if not choices:
         st.info("No one is ready for a draft.")
-        st.button("Run", key="run", disabled=True)
+        st.button("Run", key="run", disabled=True, type=_kind("run", True))
         return
     if st.session_state.get("prospect") not in choices:
         st.session_state.prospect = choices[0]
-    prospect_id = st.selectbox("Person", choices, key="prospect")
-    if st.button("Run", key="run", disabled=bool(killed), type="primary"):
-        _start_run(root, profile_id, prospect_id)
+    st.selectbox("Person", choices, key="prospect")
+    drafted = bool(st.session_state.last_run)
+    st.button(
+        "Run",
+        key="run",
+        disabled=bool(killed),
+        on_click=_queue_run,
+        type=_kind("run", not drafted),
+    )
     if st.session_state.notice:
         st.error(st.session_state.notice)
     if st.session_state.last_run:
         _show_run(root, Path(st.session_state.last_run))
-        st.button("Next", key="next_run", on_click=_go, args=("review",), type="primary")
+        st.button("Next", key="next_run", on_click=_go, args=("review",), type=_kind("run", True))
 
 
 def _show_run(root: Path, run_dir: Path) -> None:
@@ -536,12 +675,13 @@ def _lookup_prospect(profile, prospect_id: str):
 
 
 def _review_tab(root: Path, profile_id: str, killed: str) -> None:
+    st.markdown('<div class="step-card step-card-review"><p>4 · Review</p></div>', unsafe_allow_html=True)
     st.header("Review")
     st.markdown("Read the note. Type your name, acknowledge any findings, then approve, edit, or reject.")
     run_dir = _selected_run(root)
     if run_dir is None:
         st.info("Run a prospect first.")
-        st.button("Approve", key="approve", disabled=True)
+        st.button("Approve", key="approve", disabled=True, type=_kind("review", True))
         return
     status = run_status(run_dir)
     st.markdown(status_badge(status.get("status", "")))
@@ -588,15 +728,43 @@ def _review_tab(root: Path, profile_id: str, killed: str) -> None:
     disabled = bool(killed)
     prospect_id = st.session_state.get("prospect") or status["prospect_id"]
     approve, edit, reject = st.columns(3)
-    if approve.button("Approve", key="approve", disabled=disabled, type="primary"):
-        _store_decision(root, profile_id, prospect_id, "APPROVED", name, hook, bridge)
-    if edit.button("Edit", key="edit", disabled=disabled):
-        _store_decision(root, profile_id, prospect_id, "EDITED", name, hook, bridge)
-    if reject.button("Reject", key="reject", disabled=disabled):
-        _store_decision(root, profile_id, prospect_id, "REJECTED", name, hook, bridge)
+    approve.button(
+        "Approve",
+        key="approve",
+        disabled=disabled,
+        type=_kind("review", True),
+        on_click=_queue_decision,
+        args=("APPROVED",),
+    )
+    edit.button("Edit", key="edit", disabled=disabled, on_click=_queue_decision, args=("EDITED",))
+    reject.button("Reject", key="reject", disabled=disabled, on_click=_queue_decision, args=("REJECTED",))
     _show_decision()
     if st.session_state.decision and st.session_state.decision[0] == 0:
-        st.button("Next", key="next_review", on_click=_go, args=("outbox",), type="primary")
+        st.button("Next", key="next_review", on_click=_go, args=("outbox",))
+
+
+def _queue_decision(decision: str) -> None:
+    st.session_state.pending_decision = decision
+
+
+def _consume_decision(root: Path, profile_id: str) -> None:
+    decision = st.session_state.pop("pending_decision", "")
+    if not decision:
+        return
+    run_dir = _selected_run(root)
+    if run_dir is None:
+        return
+    status = run_status(run_dir)
+    prospect_id = st.session_state.get("prospect") or status.get("prospect_id") or ""
+    _store_decision(
+        root,
+        profile_id,
+        prospect_id,
+        decision,
+        st.session_state.get("approver", ""),
+        st.session_state.get("edit_hook", ""),
+        st.session_state.get("edit_bridge", ""),
+    )
 
 
 def _store_decision(root, profile_id, prospect_id, decision, name, hook, bridge) -> None:
@@ -638,17 +806,19 @@ def _selected_run(root: Path) -> Path | None:
 
 
 def _outbox_tab(root: Path) -> None:
-    st.header("Outbox")
+    st.markdown('<div class="step-card step-card-outbox"><p>5 · Send</p></div>', unsafe_allow_html=True)
+    st.header("Send")
     st.markdown("Approved notes are saved here. Nothing is emailed.")
     rows = outbox_rows(root)
     if not rows:
         st.info("No emails yet. Approve a note on Review and it will show up here.")
+        st.button("Go to Review", key="send_back", on_click=_go, args=("review",), type=_kind("outbox", True))
         return
     for row in rows:
         who = row["approver"] or "a person"
         st.markdown(f'<span class="badge-ok">Approved by {who}</span>', unsafe_allow_html=True)
         st.code(row["text"])
-    st.button("Next", key="next_outbox", on_click=_go, args=("logbook",), type="primary")
+    st.button("Find another", key="find_another", on_click=_go, args=("search",), type=_kind("outbox", True))
 
 
 def _logbook_tab(root: Path) -> None:

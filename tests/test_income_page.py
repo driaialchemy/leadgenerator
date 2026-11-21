@@ -5,7 +5,7 @@ from streamlit.testing.v1 import AppTest
 from leadgen.paths import repo_root
 
 APP = repo_root() / "src" / "leadgen" / "app.py"
-TITLES = ("Search", "Shortlist", "Run", "Review", "Outbox", "Logbook", "Funnel")
+TITLES = ("Find", "Shortlist", "Draft", "Review", "Send", "Logbook", "Funnel")
 PROFILES = {
     "ai_automation_services": "AUTO-001",
     "admin_assist_services": "ADMN-001",

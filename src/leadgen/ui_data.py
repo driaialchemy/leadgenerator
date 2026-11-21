@@ -156,6 +156,44 @@ def logbook(root: Path, run_id: str) -> list[dict]:
     return rows
 
 
+def summary_tiles(root: Path, profile_id: str, shown: int) -> list[dict]:
+    """Five counts for the class page. A signed run is not still waiting."""
+    board = prospect_board(profile_id)
+    waiting = 0
+    approved = 0
+    runs = Path(root) / "runs"
+    if runs.is_dir():
+        for folder in runs.iterdir():
+            if not folder.is_dir():
+                continue
+            approval = folder / "approval.json"
+            if approval.is_file():
+                try:
+                    decision = json.loads(approval.read_text(encoding="utf-8")).get("decision")
+                except json.JSONDecodeError:
+                    decision = None
+                if decision in {"APPROVED", "EDITED"}:
+                    approved += 1
+                continue
+            status_path = folder / "status.json"
+            if not status_path.is_file():
+                continue
+            try:
+                status = json.loads(status_path.read_text(encoding="utf-8")).get("status")
+            except json.JSONDecodeError:
+                status = None
+            if status == "PENDING_APPROVAL":
+                waiting += 1
+    sent = len(outbox_rows(root))
+    return [
+        {"label": "Businesses found", "value": shown, "tone": "found"},
+        {"label": "On shortlist", "value": len(board["ranked"]), "tone": "shortlist"},
+        {"label": "Drafts waiting", "value": waiting, "tone": "waiting"},
+        {"label": "Approved", "value": approved, "tone": "approved"},
+        {"label": "Sent", "value": sent, "tone": "sent"},
+    ]
+
+
 def outbox_rows(root: Path) -> list[dict]:
     folder = Path(root) / "outbox"
     if not folder.is_dir():

@@ -1,6 +1,7 @@
 """The class page keeps what a person types, and the words on screen stay plain."""
 
 import json
+import re
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
@@ -23,6 +24,33 @@ SHOWN = ("Northwind Example LLC", "Old Registration LLC", "Quiet Mail LLC")
 
 
 def test_contrast_pairs_meet_wcag_aa():
+    names = {name for name, _foreground, _background in PAIRS}
+    required = {
+        "banner_start",
+        "banner_end",
+        "step_current",
+        "step_done",
+        "step_ready",
+        "step_locked",
+        "primary",
+        "primary_disabled",
+        "secondary",
+        "secondary_disabled",
+        "chip_wait",
+        "chip_ok",
+        "chip_stop",
+        "tile_found",
+        "tile_shortlist",
+        "tile_waiting",
+        "tile_approved",
+        "tile_sent",
+        "card_find",
+        "card_shortlist",
+        "card_draft",
+        "card_review",
+        "card_send",
+    }
+    assert required <= names
     for name, foreground, background in PAIRS:
         assert contrast_ratio(foreground, background) >= 4.5, name
 
@@ -215,6 +243,107 @@ def test_walkthrough_reaches_one_outbox_file(monkeypatch, tmp_path):
         assert "Approved by Ada" in _text(at)
 
 
+def test_locked_steps_stay_put_and_offer_a_way_forward(monkeypatch, tmp_path):
+    at = _open(monkeypatch, tmp_path)
+    at.button(key="nav_review").click().run(timeout=60)
+    _ok(at)
+    assert at.session_state["step"] == "search"
+    assert "Nothing to review yet" in _text(at)
+    assert at.button(key="unlock_review").label == "Go to Draft"
+    at.button(key="unlock_review").click().run(timeout=60)
+    assert at.session_state["step"] == "run"
+    at.button(key="nav_outbox").click().run(timeout=60)
+    _ok(at)
+    assert at.session_state["step"] == "run"
+    assert "Nothing sent yet" in _text(at)
+    assert at.button(key="unlock_outbox").label == "Go to Review"
+
+
+def test_sidebar_more_opens_the_record_pages(monkeypatch, tmp_path):
+    at = _open(monkeypatch, tmp_path)
+    keys = {getattr(node, "key", None) for node in at.sidebar}
+    assert {"nav_logbook", "nav_funnel", "nav_settings"} <= keys
+    assert "check_keys" not in keys
+    assert "red_team" not in keys
+    at.button(key="nav_logbook").click().run(timeout=60)
+    assert at.session_state["step"] == "logbook"
+    assert "Logbook" in _text(at)
+    at.button(key="nav_funnel").click().run(timeout=60)
+    assert at.session_state["step"] == "funnel"
+    assert "Funnel" in _text(at)
+    at.button(key="nav_settings").click().run(timeout=60)
+    assert at.session_state["step"] == "settings"
+    assert "Settings" in _text(at)
+    assert at.button(key="check_keys").label == "Check keys"
+
+
+def test_wizard_walk_has_one_primary_and_the_b2b_counts(monkeypatch, tmp_path):
+    at = _open(monkeypatch, tmp_path)
+    assert _states(at)["search"] == "current"
+    assert _states(at)["shortlist"] == "ready"
+    assert _states(at)["run"] == "ready"
+    assert _states(at)["review"] == "locked"
+    assert _states(at)["outbox"] == "locked"
+    assert _primaries(at) == ["Search"]
+
+    at.button(key="example_0").click().run(timeout=60)
+    _ok(at)
+    assert _primaries(at) == ["Next"]
+    assert _tiles(at) == {
+        "Businesses found": 3,
+        "On shortlist": 5,
+        "Drafts waiting": 0,
+        "Approved": 0,
+        "Sent": 0,
+    }
+    at.button(key="next_search").click().run(timeout=60)
+    assert at.session_state["step"] == "shortlist"
+    assert _states(at)["search"] == "done"
+    assert _states(at)["shortlist"] == "current"
+    assert _primaries(at) == ["Next"]
+
+    at.button(key="next_shortlist").click().run(timeout=60)
+    assert at.session_state["step"] == "run"
+    assert _states(at)["shortlist"] == "done"
+    assert _states(at)["run"] == "current"
+    assert _states(at)["review"] == "locked"
+    assert _primaries(at) == ["Run"]
+
+    at.button(key="run").click().run(timeout=60)
+    _ok(at)
+    assert _states(at)["run"] == "current"
+    assert _states(at)["review"] == "ready"
+    assert _primaries(at) == ["Next"]
+    assert _tiles(at)["Drafts waiting"] == 1
+    assert _tiles(at)["Approved"] == 0
+    assert _tiles(at)["Sent"] == 0
+
+    at.button(key="next_run").click().run(timeout=60)
+    assert at.session_state["step"] == "review"
+    assert _states(at)["run"] == "done"
+    assert _states(at)["review"] == "current"
+    assert _states(at)["outbox"] == "locked"
+    assert _primaries(at) == ["Approve"]
+
+    at.text_input(key="approver").set_value("Ada").run(timeout=60)
+    at.checkbox(key="ack").set_value(True).run(timeout=60)
+    at.button(key="approve").click().run(timeout=60)
+    _ok(at)
+    assert _primaries(at) == ["Approve"]
+    assert _tiles(at) == {
+        "Businesses found": 3,
+        "On shortlist": 5,
+        "Drafts waiting": 0,
+        "Approved": 1,
+        "Sent": 1,
+    }
+    at.button(key="next_review").click().run(timeout=60)
+    assert at.session_state["step"] == "outbox"
+    assert _states(at)["review"] == "done"
+    assert _states(at)["outbox"] == "current"
+    assert _primaries(at) == ["Find another"]
+
+
 def _open(monkeypatch, tmp_path):
     monkeypatch.setenv("LEADGEN_DATA_ROOT", str(tmp_path))
     monkeypatch.delenv("LEADGEN_KILL_SWITCH", raising=False)
@@ -246,6 +375,22 @@ def _switch(at, away: str, back: str) -> None:
     _ok(at)
     at.button(key=f"nav_{back}").click().run(timeout=60)
     _ok(at)
+
+
+def _states(at) -> dict:
+    return dict(re.findall(r'data-step="(\w+)" data-state="(\w+)"', _text(at)))
+
+
+def _primaries(at) -> list[str]:
+    return [button.label for button in at.button if button.proto.type == "primary"]
+
+
+def _tiles(at) -> dict:
+    pairs = re.findall(
+        r'class="tile-value">(\d+)</span><span class="tile-label">([^<]+)',
+        _text(at),
+    )
+    return {label: int(value) for value, label in pairs}
 
 
 def _ok(at) -> None:
