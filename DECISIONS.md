@@ -176,3 +176,9 @@ The class page is five steps: Find, Shortlist, Draft, Review, and Send. A step t
 The counts are businesses found, the ranked shortlist, drafts still waiting, approved decisions, and outbox files. A run that already has `approval.json` is not counted as waiting. The stored status file is still `PENDING_APPROVAL`.
 
 White text failed the 4.5 ratio on the bright teal, green, amber, and coral, so those fills are a darker shade of the same hue. The waiting chip keeps the bright amber and uses dark text. The current step, the primary button, and the disabled primary button set their own text color, so the page color does not cover them. Icons are inline SVG. The page still does not ship a picture.
+
+## 2026-11-20 — Mailbox draft and send
+
+Practice is still the outbox file written when a person approves. Gmail and Outlook are a later step, and only for a note that already has an approval record. The Gmail scope is `gmail.compose`. Graph uses delegated `Mail.Send` and `Mail.ReadWrite`. `Mail.ReadWrite` can read mail, because that is what Graph requires to create a draft. The client never lists or reads messages.
+
+Save as draft is the default. Send now requires a second confirmation. Demo safety defaults on, for the session only, and blocks a send to anyone except the allowlist or the signed-in account's own address. A draft is still allowed. Each run can be sent once. The session cap defaults to 5. The kill switch blocks both. A prospect with no email is refused. Nothing is marked sent unless the provider returns a message id. The flight recorder stores the destination, account, recipient, message id, approver, and result, and does not store the body or a token. Client files and tokens stay in `C:\Users\msell\secrets`.

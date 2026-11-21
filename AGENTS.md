@@ -28,7 +28,7 @@ Teaching demo for business owners. Code decides who to contact, the AI writes on
 
 ## Sending
 
-No module may import smtplib or any email/SMS-sending library. "Send" means writing a file to `outbox/`.
+No module may import smtplib. Practice approval still writes one file under `outbox/`. Gmail and Outlook are called only from the mail gate, after an approval record. The Gmail scope is compose. The Graph permissions are `Mail.Send` and `Mail.ReadWrite`. The verifier, scoring, and metrics modules do not import those clients.
 
 ## Profiles
 

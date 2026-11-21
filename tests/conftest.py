@@ -26,5 +26,10 @@ def offline_env(monkeypatch, tmp_path):
         "LEADGEN_REASON_MODEL",
         "SAM_API_KEY",
         "LEADGEN_EDGAR_USER_AGENT",
+        "LEADGEN_GMAIL_CLIENT_FILE",
+        "LEADGEN_GMAIL_TOKEN_FILE",
+        "LEADGEN_OUTLOOK_CLIENT_ID",
+        "LEADGEN_OUTLOOK_TOKEN_FILE",
+        "LEADGEN_OUTLOOK_TENANT",
     ):
         monkeypatch.delenv(name, raising=False)

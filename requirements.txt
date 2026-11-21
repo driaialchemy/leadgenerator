@@ -6,4 +6,7 @@ anthropic
 google-genai
 openai
 python-dotenv
+google-api-python-client
+google-auth-oauthlib
+msal
 -e .

@@ -1,5 +1,6 @@
 """Class walkthrough. One prospect, from the ranked list to the outbox."""
 
+import json
 import os
 from pathlib import Path
 
@@ -9,6 +10,14 @@ from leadgen.approve import decide, latest_run
 from leadgen.check_keys import main as check_keys_main
 from leadgen.kill_switch import KillSwitchEngaged
 from leadgen.llm import ConfigError, ProviderError, current_mode
+from leadgen.mail import (
+    NO_EMAIL,
+    connect_account,
+    connection_status,
+    deliver,
+    disconnect_account,
+    refusal_reason,
+)
 from leadgen.loaders import load_prospects
 from leadgen.pipeline import run_prospect
 from leadgen.profiles import load_pipeline_config, load_profile
@@ -86,6 +95,7 @@ def main() -> None:
     _consume_search(root, load_profile(profile_id))
     _consume_run(root, profile_id)
     _consume_decision(root, profile_id)
+    _consume_mail(root)
     st.markdown(
         '<div class="banner"><h1>Lead &amp; Income Finder</h1>'
         "<p>Find a business, draft a note from approved facts, and sign it before anything is saved.</p></div>",
@@ -104,7 +114,7 @@ def main() -> None:
     with _panel("review"):
         _review_tab(root, profile_id, killed)
     with _panel("outbox"):
-        _outbox_tab(root)
+        _outbox_tab(root, killed)
     with _panel("logbook"):
         _logbook_tab(root)
     with _panel("funnel"):
@@ -126,6 +136,10 @@ def _init_state() -> None:
     st.session_state.setdefault("fields_for", "")
     st.session_state.setdefault("furthest", "search")
     st.session_state.setdefault("lock_notice", "")
+    st.session_state.setdefault("demo_safety", True)
+    st.session_state.setdefault("mail_destination", "Practice")
+    st.session_state.setdefault("mail_action", "Save as draft")
+    st.session_state.setdefault("mail_result", None)
     if "data_mode" not in st.session_state:
         st.session_state.data_mode = "Practice data" if current_mode() == "offline" else "Live"
 
@@ -805,10 +819,12 @@ def _selected_run(root: Path) -> Path | None:
         return None
 
 
-def _outbox_tab(root: Path) -> None:
+def _outbox_tab(root: Path, killed: str) -> None:
     st.markdown('<div class="step-card step-card-outbox"><p>5 · Send</p></div>', unsafe_allow_html=True)
     st.header("Send")
-    st.markdown("Approved notes are saved here. Nothing is emailed.")
+    st.markdown(
+        "Practice saves a file. Gmail and Outlook can save a draft or send the approved note."
+    )
     rows = outbox_rows(root)
     if not rows:
         st.info("No emails yet. Approve a note on Review and it will show up here.")
@@ -818,7 +834,134 @@ def _outbox_tab(root: Path) -> None:
         who = row["approver"] or "a person"
         st.markdown(f'<span class="badge-ok">Approved by {who}</span>', unsafe_allow_html=True)
         st.code(row["text"])
+    run_dir = _send_run(root)
+    st.radio("Where", ["Practice", "Gmail", "Outlook"], key="mail_destination")
+    st.radio("What to do", ["Save as draft", "Send now"], key="mail_action")
+    _mail_actions(root, run_dir, killed)
+    result = st.session_state.get("mail_result") or {}
+    if result.get("message"):
+        if result.get("ok"):
+            st.success(result["message"])
+        else:
+            st.error(result["message"])
+    if result.get("reconnect"):
+        st.button("Reconnect", key="reconnect_mail", on_click=_reconnect)
     st.button("Find another", key="find_another", on_click=_go, args=("search",), type=_kind("outbox", True))
+
+
+def _mail_actions(root: Path, run_dir: Path | None, killed: str) -> None:
+    if run_dir is None:
+        return
+    destination = st.session_state.get("mail_destination", "Practice")
+    action = st.session_state.get("mail_action", "Save as draft")
+    email = ""
+    prospect = run_dir / "prospect.json"
+    if prospect.is_file():
+        email = str(json.loads(prospect.read_text(encoding="utf-8")).get("email") or "").strip()
+    if not email:
+        st.info(NO_EMAIL)
+        for line in contact_channels(run_dir):
+            st.markdown(line)
+        return
+    if action == "Send now" and destination == "Practice":
+        st.info("Practice saves a file. It does not email.")
+        return
+    if action == "Save as draft":
+        st.button(
+            "Save as draft",
+            key="save_draft",
+            disabled=bool(killed),
+            on_click=_queue_mail,
+            args=("draft", False),
+        )
+        return
+    account = connection_status(destination).get("address", "")
+    reason = refusal_reason(
+        root,
+        run_dir,
+        destination,
+        "send",
+        demo_safety=bool(st.session_state.get("demo_safety", True)),
+        confirmed=True,
+        account=account,
+    )
+    subject = ""
+    rendered = (run_dir / "rendered.txt").read_text(encoding="utf-8") if (run_dir / "rendered.txt").is_file() else ""
+    if rendered.startswith("Subject:"):
+        subject = rendered.splitlines()[0].split(":", 1)[1].strip()
+    who = account or connection_status(destination)["label"]
+    st.markdown(f"To: {email}")
+    st.markdown(f"Subject: {subject}")
+    st.markdown(f"From: {who}")
+    if reason:
+        st.info(reason)
+    st.button(
+        "Confirm send",
+        key="confirm_send",
+        disabled=bool(killed) or bool(reason),
+        on_click=_queue_mail,
+        args=("send", True),
+    )
+
+
+def _send_run(root: Path) -> Path | None:
+    run_dir = _selected_run(root)
+    if run_dir is not None and (root / "outbox" / f"{run_dir.name}.txt").is_file():
+        return run_dir
+    rows = outbox_rows(root)
+    if not rows:
+        return None
+    return root / "runs" / Path(rows[-1]["file"]).stem
+
+
+def _queue_mail(action: str, confirmed: bool) -> None:
+    st.session_state.pending_mail = (action, confirmed)
+
+
+def _consume_mail(root: Path) -> None:
+    pending = st.session_state.pop("pending_mail", None)
+    if not pending:
+        return
+    action, confirmed = pending
+    run_dir = _send_run(root)
+    if run_dir is None:
+        st.session_state.mail_result = {
+            "ok": False,
+            "message": "Approve a note first.",
+            "reconnect": False,
+        }
+        return
+    result = deliver(
+        root,
+        run_dir,
+        st.session_state.get("mail_destination", "Practice"),
+        action,
+        confirmed,
+        demo_safety=bool(st.session_state.get("demo_safety", True)),
+    )
+    st.session_state.mail_result = {
+        "ok": result.ok,
+        "message": result.message,
+        "reconnect": result.reconnect,
+    }
+
+
+def _connect_mailbox(destination: str) -> None:
+    connect_account(destination)
+
+
+def _disconnect_mailbox(destination: str) -> None:
+    disconnect_account(destination)
+
+
+def _reconnect() -> None:
+    destination = st.session_state.get("mail_destination", "Gmail")
+    status = connect_account(destination)
+    st.session_state.mail_result = {
+        "ok": status["state"] == "connected",
+        "message": status["label"],
+        "reconnect": status["state"] != "connected",
+    }
 
 
 def _logbook_tab(root: Path) -> None:
@@ -851,6 +994,8 @@ def _event_label(event_type: str | None) -> str:
         "retry": "Trying again",
         "approval": "Approval",
         "outbox": "Saved note",
+        "mail_draft": "Mailbox draft",
+        "mail_send": "Mailbox send",
         "refusal": "Not sent",
         "error": "Problem",
         "search": "Search",
@@ -898,6 +1043,25 @@ def _settings_tab(root: Path) -> None:
         key="red_team",
         help="On the next Run only, the first draft is tempted to offer a discount.",
     )
+    st.checkbox(
+        "Demo safety",
+        key="demo_safety",
+        help="When this is on, Send now only reaches an allowlisted address or your own account.",
+    )
+    if not st.session_state.demo_safety:
+        st.warning(
+            "Demo safety is off. Send now can reach addresses that are not on the allowlist."
+        )
+    for destination, title in (("gmail", "Gmail"), ("outlook", "Outlook")):
+        status = connection_status(destination)
+        st.markdown(f"{title}: {status['label']}")
+        st.button("Connect", key=f"connect_{destination}", on_click=_connect_mailbox, args=(destination,))
+        st.button(
+            "Disconnect",
+            key=f"disconnect_{destination}",
+            on_click=_disconnect_mailbox,
+            args=(destination,),
+        )
     if st.button("Check keys", key="check_keys"):
         from contextlib import redirect_stdout
         from io import StringIO

@@ -200,6 +200,8 @@ class PipelineConfig(BaseModel):
     max_claims: int = Field(ge=1)
     source_record_cap: int = Field(default=10, ge=1, le=25)
     source_cache_hours: int = Field(default=24, ge=1)
+    send_cap: int = Field(default=5, ge=1)
+    allowlist: list[str] = Field(default_factory=list)
     exclusions: Exclusions
 
     @model_validator(mode="after")
@@ -349,6 +351,8 @@ EventType = Literal[
     "search",
     "source_call",
     "add_to_pipeline",
+    "mail_draft",
+    "mail_send",
 ]
 
 
@@ -377,6 +381,11 @@ class FlightEvent(BaseModel):
     endpoint: str | None = None
     record_count: int | None = None
     cache_hit: bool | None = None
+    destination: str | None = None
+    account: str | None = None
+    recipient: str | None = None
+    message_id: str | None = None
+    approver: str | None = None
     status: Literal["ok", "fail", "blocked"]
     detail: str
 

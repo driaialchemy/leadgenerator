@@ -50,7 +50,7 @@ Five counts sit under the title: businesses found, people on the shortlist, draf
 
 On Find, type a request or press an example. The example fills the box and runs the search. The result names the business, how to reach them, and why they fit. A stale record is marked. Change a field and press Update results to run that search again. Add to pipeline, then Next.
 
-Shortlist is the ranked list. Draft numbers the steps in plain language and ends on "Waiting for your approval". Review is where you type your name, acknowledge any findings, and approve, edit, or reject. Approve writes one file under `outbox/`. Nothing is emailed. The logbook is the record of that run, in plain language. The files on disk keep their codes.
+Shortlist is the ranked list. Draft numbers the steps in plain language and ends on "Waiting for your approval". Review is where you type your name, acknowledge any findings, and approve, edit, or reject. Approve writes one file under `outbox/`. That file is the Practice copy. On Send, you can leave it there, or save the same approved note as a draft in Gmail or Outlook, or send it from that account. The logbook is the record of that run, in plain language. The files on disk keep their codes.
 
 Live is the class default, which is what the launcher uses when `LEADGEN_LLM_MODE` is unset. Offline is the no-Wi-Fi backup:
 
@@ -110,16 +110,35 @@ Set `LEADGEN_DEMO_TEMPT=1`, or turn on the sidebar red-team toggle, to add one v
 
 ## Logbook
 
-Every run appends to `runs/flight_recorder.jsonl`. Lines are only added. A later line does not rewrite an earlier one. Each line is one JSON object: a model call, a gate, the verifier, the evaluator, a retry, an approval, an outbox write, a refusal, or a kill-switch block. Model calls include `input_sha256`, the provider, the model, `duration_ms`, and token counts when the vendor reports them. A retry includes `attempt_number`, `retry_of`, and `retry_reason`. The same run's files live under `runs/<prospect-id>-<UTC timestamp>/`.
+Every run appends to `runs/flight_recorder.jsonl`. Lines are only added. A later line does not rewrite an earlier one. Each line is one JSON object: a model call, a gate, the verifier, the evaluator, a retry, an approval, an outbox write, a mailbox draft, a mailbox send, a refusal, or a kill-switch block. Model calls include `input_sha256`, the provider, the model, `duration_ms`, and token counts when the vendor reports them. A retry includes `attempt_number`, `retry_of`, and `retry_reason`. A mailbox line records the destination, the account address, the recipient, the provider's message id, the approver, and the result. It does not record the message body or a token. The same run's files live under `runs/<prospect-id>-<UTC timestamp>/`.
 
 ## What "send" means
 
-An approval writes one text file under `outbox/`. That file is the message. Nothing is emailed or texted. The repo has no SMTP library. A rejected decision writes nothing to `outbox/`.
+An approval writes one text file under `outbox/`. That file is the Practice copy. A rejected decision writes nothing to `outbox/`. The repo has no SMTP library.
+
+Send then offers three destinations:
+
+- Practice leaves the note in `outbox/`. It does not email anyone.
+- Gmail saves a draft, or sends, through the Gmail API. The only scope is `https://www.googleapis.com/auth/gmail.compose`.
+- Outlook saves a draft, or sends, through Microsoft Graph. The only delegated permissions are `Mail.Send` and `Mail.ReadWrite`.
+
+Save as draft is the default. Send now asks you to confirm the To address, the subject, and the account. Setup for both accounts is in `docs/EMAIL_SETUP.md`. Client files and tokens stay in `C:\Users\msell\secrets`.
+
+Safeguards, enforced in code:
+
+- Only an approved or edited note can be drafted or sent. The approver's name and the approval time are stored with the mailbox record.
+- A prospect with no email cannot be drafted or sent. The screen says so and lists the channels on the record.
+- Demo safety is on by default. Send now then reaches only an address or domain in `allowlist` in `config/pipeline.yaml`, or the signed-in account's own address. Any other address can still be saved as a draft. Turning Demo safety off is a Settings switch, and the page warns you.
+- One note can be sent once. A later draft of that same note is still allowed.
+- Send now stops after `send_cap` messages in the session. The default is 5.
+- Every message keeps the sender identity and the opt-out line the verifier already required.
+- The kill switch blocks drafting and sending.
+- A failed sign-in, a network failure, or a provider rejection shows one plain message and a Reconnect button. The note is not marked sent unless the provider returns a message id. Settings shows each account as Connected with the address, Not connected, or Expired.
 
 ## Architecture
 
 ```
-request → Translator (AI, allowlisted filters) → public-record sources (code) → de-dup, suppression, rank (code) → reason line (AI, checked) → Add to pipeline → prospects.csv or that record → Intake → Exclusions → Qualify (code) → Tailor (AI, approved claims only) → Draft (AI, {{tokens}}) → Verifier (code) → Blind evaluator (AI) → one capped revise → Human approval → outbox/ (no real send) → Funnel metrics (code); every step → runs/flight_recorder.jsonl
+request → Translator (AI, allowlisted filters) → public-record sources (code) → de-dup, suppression, rank (code) → reason line (AI, checked) → Add to pipeline → prospects.csv or that record → Intake → Exclusions → Qualify (code) → Tailor (AI, approved claims only) → Draft (AI, {{tokens}}) → Verifier (code) → Blind evaluator (AI) → one capped revise → Human approval → outbox/ (Practice) or Gmail/Outlook draft or send → Funnel metrics (code); every step → runs/flight_recorder.jsonl
 ```
 
 The scout (scoring code) decides who is worth a call. The copywriter (AI) writes from an approved fact sheet. The compliance desk (verifier) sends sloppy copy back. A tough customer (blind evaluator) says whether it would get read. The sales manager (a person) signs before anything leaves.
@@ -131,13 +150,13 @@ The scout (scoring code) decides who is worth a call. The copywriter (AI) writes
 NetWitness exposure questions:
 
 **What can it do?**
-It reads synthetic prospect files and profile YAML, scores them, and, for people who clear the bar, drafts a message from approved claims. Code checks that draft. A blind reader scores it. A person approves it. Approval writes a file under `outbox/`. It cannot send email or SMS. The repo has no SMTP library.
+It reads synthetic prospect files and profile YAML, scores them, and, for people who clear the bar, drafts a message from approved claims. Code checks that draft. A blind reader scores it. A person approves it. Approval writes a file under `outbox/`. After that approval, the signed-in user can save the note as a draft in their own Gmail or Outlook account, or send it from that account. Practice does not email anyone. The repo has no SMTP library.
 
 **What can it reach?**
-Local files in this project: `config/`, `sample_data/`, `runs/`, and `outbox/`. Keys are read from `C:\Users\msell\secrets\` when that file exists, and are not stored here. Offline mode opens no network connection. Live mode calls Google, Anthropic, and OpenAI for the draft, and, when Search runs, SAM.gov, SEC EDGAR, and the City of Phoenix permit service. It does not reach a CRM, a mailbox, or a customer database. Sample prospects are fictional `@example.com` addresses. Search results are public records and are not copied into the repo.
+Local files in this project: `config/`, `sample_data/`, `runs/`, and `outbox/`. Keys are read from `C:\Users\msell\secrets\` when that file exists, and are not stored here. Offline mode opens no network connection for the draft. Live mode calls Google, Anthropic, and OpenAI for the draft, and, when Search runs, SAM.gov, SEC EDGAR, and the City of Phoenix permit service. When you connect a mailbox, it can also reach your Gmail or Outlook account to create a draft and to send. The Outlook permission `Mail.ReadWrite` technically allows reading mail, because Graph requires it to create a draft. The code never lists or reads messages. It does not reach a CRM or a customer database. Sample prospects are fictional `@example.com` addresses. Search results are public records and are not copied into the repo.
 
 **What evidence remains?**
-Each step appends one line to `runs/flight_recorder.jsonl`. A run also keeps its tailor result, draft, rendered message, verification, evaluation, and status under `runs/<prospect-id>-<UTC timestamp>/`. `outbox/` holds the files that stand in for sending. Sample data and tests stay in the repo. `.env` is not committed. `runs/` and `outbox/` are gitignored except for their `.gitkeep` files.
+Each step appends one line to `runs/flight_recorder.jsonl`. A mailbox draft or send adds a line with the destination, account, recipient, provider message id, approver, and result. The body and the tokens are not in that line. A run also keeps its tailor result, draft, rendered message, verification, evaluation, and status under `runs/<prospect-id>-<UTC timestamp>/`. A confirmed mailbox action adds `mail.json` there. `outbox/` holds the Practice copy. Sample data and tests stay in the repo. `.env` is not committed. `runs/` and `outbox/` are gitignored except for their `.gitkeep` files.
 
 **Kill switch:** set `LEADGEN_KILL_SWITCH=1` in `.env`, or create a file named `KILL_SWITCH` in the repo root. The pipeline refuses to run. Only the value `1` turns the env switch on. If `LEADGEN_KILL_SWITCH` is already set in the process environment, the value in `.env` does not replace it.
 

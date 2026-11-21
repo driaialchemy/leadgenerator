@@ -11,6 +11,8 @@ max_ai_words: 90
 max_claims: 2
 source_record_cap: 10
 source_cache_hours: 24
+send_cap: 5
+allowlist: []
 exclusions:
   do_not_contact_is: true
   consent_status_is:
