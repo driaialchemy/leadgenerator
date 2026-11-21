@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M7 done locally, not pushed. Three income-model profiles are config and sample data. The public repo is https://github.com/driaialchemy/leadgenerator.
+M8 done, not pushed. The class page is a light screen a person can use without help. M6 search and M7 income profiles are still uncommitted. The public repo is https://github.com/driaialchemy/leadgenerator.
 
 ## Done
 
@@ -14,15 +14,15 @@ M7 done locally, not pushed. Three income-model profiles are config and sample d
 - `python -m leadgen.check_keys` reports each provider without printing a key. `LEADGEN_DEMO_TEMPT=1` tempts the Drafter on attempt 1 only.
 - Approval writes `outbox/<run_id>.txt` once. `REJECTED` writes nothing. The kill switch stops run and approve before a model call. The page calls `decide`, the same function the CLI prints.
 - Replays live in `sample_data/replays/`. B2B-001 and HOME-002 reuse the caught fixture, then the good fixture.
-- The class page is `src/leadgen/app.py`. Launch it with `powershell -ExecutionPolicy Bypass -File run_app.ps1`. The sidebar shows the mode, each role's provider and model, the red-team toggle, the kill switch, and Check keys.
+- The class page is `src/leadgen/app.py`. Launch it with `powershell -ExecutionPolicy Bypass -File run_app.ps1`. The sidebar is the business and Practice data or Live. Settings holds the model for each step, the red-team toggle, and Check keys. The page says "Waiting for your approval" and does not ship an image.
 - Search reads SAM.gov, SEC EDGAR, and City of Phoenix permits. Offline replays trimmed fixtures. A source that fails does not stop the others.
-- Three more profiles: workflow studio, admin desk, and local-letter sponsors. Each has six synthetic prospects and eight outcome rows. Scoring, the verifier, and approval are unchanged. The picker uses `menu_order` so the original profile stays first.
-- 108 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`.
+- 143 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`.
 - Published on `main` at https://github.com/driaialchemy/leadgenerator.
+- Three more profiles: workflow studio, admin desk, and local-letter sponsors. Each has six synthetic prospects and eight outcome rows. Scoring, the verifier, and approval are unchanged. The picker uses `menu_order` so the original profile stays first.
 
 ## Next
 
-The class page rebuild is next. Wait for "approved push" before pushing.
+M6, M7, and M8 are in the working tree as three commits. Wait for "approved push" before committing.
 
 ## Known issues
 

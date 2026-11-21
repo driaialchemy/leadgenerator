@@ -10,14 +10,20 @@ from leadgen.paths import repo_root
 
 APP = repo_root() / "src" / "leadgen" / "app.py"
 SECRET = "unit-test-key-value-9f3a"
-TITLES = ("Prospects", "Run", "Review", "Outbox", "Logbook", "Funnel")
+TITLES = ("Shortlist", "Run", "Review", "Outbox", "Logbook", "Funnel")
 
 
-def test_shipped_assets_stay_small():
-    files = list((repo_root() / "assets").glob("*.webp"))
-    assert len(files) == 3
-    for path in files:
-        assert path.stat().st_size < 150 * 1024
+def test_no_image_is_rendered_or_shipped(monkeypatch, tmp_path):
+    shipped = [
+        path
+        for path in (repo_root() / "assets").rglob("*")
+        if path.suffix.lower() in {".webp", ".png", ".jpg", ".jpeg", ".gif", ".svg"}
+    ]
+    assert shipped == []
+    _isolate(monkeypatch, tmp_path)
+    at = _open()
+    _ok(at)
+    assert list(at.image) == []
 
 
 def test_every_tab_renders_for_both_profiles(monkeypatch, tmp_path):
@@ -38,7 +44,10 @@ def test_run_then_approve_writes_one_outbox_file(monkeypatch, tmp_path):
     at.button(key="run").click().run(timeout=60)
     _ok(at)
     text = _text(at)
-    assert "Status: PENDING_APPROVAL" in text
+    assert "Waiting for your approval" in text
+    status_files = list((tmp_path / "runs").glob("*/status.json"))
+    assert len(status_files) == 1
+    assert json.loads(status_files[0].read_text(encoding="utf-8"))["status"] == "PENDING_APPROVAL"
     assert "Attempt 1" in text
     assert "Attempt 2" in text
     calls = _model_calls(tmp_path)

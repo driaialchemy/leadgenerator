@@ -1,9 +1,6 @@
 """Class walkthrough. One prospect, from the ranked list to the outbox."""
 
-import html
 import os
-from contextlib import redirect_stdout
-from io import StringIO
 from pathlib import Path
 
 import streamlit as st
@@ -11,142 +8,491 @@ import streamlit as st
 from leadgen.approve import decide, latest_run
 from leadgen.check_keys import main as check_keys_main
 from leadgen.kill_switch import KillSwitchEngaged
-from leadgen.llm import ProviderError
+from leadgen.llm import ConfigError, ProviderError, current_mode
 from leadgen.loaders import load_prospects
-from leadgen.pipeline import _log, run_prospect
+from leadgen.pipeline import run_prospect
 from leadgen.profiles import load_pipeline_config, load_profile
+from leadgen.schemas import Prospect
+from leadgen.search import remember_add, search
 from leadgen.ui_data import (
-    attempt_comparison,
+    contact_channels,
     data_root,
     draft_fields,
-    evaluation_view,
+    exclusion_label,
     funnel_view,
     kill_message,
     logbook,
     markdown_table,
     outbox_rows,
     profile_ids,
+    profile_name,
     prospect_board,
+    refresh_search,
     rendered_text,
     role_rows,
     run_status,
+    run_steps,
+    search_view,
+    status_badge,
+    tier_label,
 )
-from leadgen.ui_theme import apply_theme, hero_path
+from leadgen.ui_theme import apply_theme
+
+STEPS = (
+    "search",
+    "shortlist",
+    "run",
+    "review",
+    "outbox",
+    "logbook",
+    "funnel",
+    "settings",
+)
+STEP_LABELS = {
+    "search": "Search",
+    "shortlist": "Shortlist",
+    "run": "Run",
+    "review": "Review",
+    "outbox": "Outbox",
+    "logbook": "Logbook",
+    "funnel": "Funnel",
+    "settings": "Settings",
+}
+FIELD_KIND = "field_kind"
+FIELD_LOCATION = "field_location"
+FIELD_FROM = "field_from"
+FIELD_TO = "field_to"
+FIELD_BUSINESS = "field_business"
+FIELD_CONTACT = "field_contact"
+FIELD_MAX = "field_max"
 
 
 def main() -> None:
-    st.set_page_config(page_title="Lead and income", layout="wide")
+    st.set_page_config(page_title="Lead & Income Finder", layout="wide")
     apply_theme()
     _init_state()
     root = data_root()
     killed = kill_message(root)
-    profile_id = _sidebar(root, killed)
-    if killed:
-        st.error(killed)
-    hero = hero_path()
-    if hero is not None:
-        st.image(str(hero))
-    prospects, run, review, outbox, log, funnel = st.tabs(
-        ["Prospects", "Run", "Review", "Outbox", "Logbook", "Funnel"]
-    )
-    with prospects:
-        _prospects_tab(profile_id)
-    with run:
+    profile_id = _sidebar(killed)
+    st.title("Lead & Income Finder")
+    st.caption("Find a business, draft a note from approved facts, and sign it before anything is saved.")
+    st.markdown('<p class="step-strip">Find · Score · Draft · Check · Approve</p>', unsafe_allow_html=True)
+    _step_buttons()
+    _hide_inactive()
+    with _panel("search"):
+        _search_tab(root, profile_id, killed)
+    with _panel("shortlist"):
+        _shortlist_tab(profile_id)
+    with _panel("run"):
         _run_tab(root, profile_id, killed)
-    with review:
+    with _panel("review"):
         _review_tab(root, profile_id, killed)
-    with outbox:
+    with _panel("outbox"):
         _outbox_tab(root)
-    with log:
+    with _panel("logbook"):
         _logbook_tab(root)
-    with funnel:
+    with _panel("funnel"):
         _funnel_tab(profile_id)
+    with _panel("settings"):
+        _settings_tab(root)
 
 
 def _init_state() -> None:
+    st.session_state.setdefault("step", "search")
     st.session_state.setdefault("stages", [])
     st.session_state.setdefault("last_run", "")
     st.session_state.setdefault("last_status", "")
     st.session_state.setdefault("decision", None)
     st.session_state.setdefault("notice", "")
     st.session_state.setdefault("key_report", "")
+    st.session_state.setdefault("added_people", [])
+    st.session_state.setdefault("search_view", None)
+    st.session_state.setdefault("fields_for", "")
+    if "data_mode" not in st.session_state:
+        st.session_state.data_mode = "Practice data" if current_mode() == "offline" else "Live"
 
 
-def _sidebar(root: Path, killed: str) -> str:
-    st.sidebar.header("Setup")
+def _sidebar(killed: str) -> str:
     ids = profile_ids()
-    profile_id = st.sidebar.selectbox("Profile", ids, key="profile")
-    mode = role_rows()[0]["mode"]
-    badge = "Live" if mode == "live" else "Offline"
-    st.sidebar.markdown(f"**Mode: {badge}**")
-    for row in role_rows():
-        st.sidebar.markdown(f"{row['role']}: {row['provider']} · {row['model']}")
-    st.sidebar.checkbox("Red-team toggle", key="red_team")
+    profile_id = st.sidebar.selectbox(
+        "Business",
+        ids,
+        format_func=profile_name,
+        key="profile",
+    )
+    st.sidebar.radio(
+        "Data mode",
+        ["Practice data", "Live"],
+        key="data_mode",
+        on_change=_apply_mode,
+        help="Practice data uses saved examples. Live calls the accounts.",
+    )
     if killed:
         st.sidebar.error(killed)
-    else:
-        st.sidebar.markdown("Kill switch: off")
-    if st.sidebar.button("Check keys", key="check_keys"):
-        buffer = StringIO()
-        with redirect_stdout(buffer):
-            check_keys_main()
-        st.session_state.key_report = buffer.getvalue()
-    if st.session_state.key_report:
-        st.sidebar.code(st.session_state.key_report)
     return profile_id
 
 
-def _prospects_tab(profile_id: str) -> None:
-    st.header("Prospects")
-    st.markdown('<span class="capex-label capex-code">Code</span>', unsafe_allow_html=True)
-    board = prospect_board(profile_id)
-    st.markdown(
-        markdown_table(
-            [
-                {
-                    "prospect_id": row["prospect_id"],
-                    "score": row["score"],
-                    "tier": row["tier"],
-                    "draft": "yes" if row["draft_eligible"] else "no",
-                }
-                for row in board["ranked"]
-            ],
-            ["prospect_id", "score", "tier", "draft"],
+def _apply_mode() -> None:
+    choice = st.session_state.get("data_mode")
+    os.environ["LEADGEN_LLM_MODE"] = "offline" if choice == "Practice data" else "live"
+
+
+def _step_buttons() -> None:
+    columns = st.columns(len(STEPS))
+    for column, name in zip(columns, STEPS):
+        with column:
+            st.button(
+                STEP_LABELS[name],
+                key=f"nav_{name}",
+                on_click=_go,
+                args=(name,),
+                type="primary" if st.session_state.step == name else "secondary",
+            )
+
+
+def _go(step: str) -> None:
+    st.session_state.step = step
+
+
+def _hide_inactive() -> None:
+    rules = []
+    for name in STEPS:
+        if name == st.session_state.step:
+            continue
+        rules.append(
+            'div[data-testid="stVerticalBlock"]:has(> div span.panel-mark[data-panel="%s"])'
+            ":not(:has(> div [data-testid='stVerticalBlock'] span.panel-mark[data-panel='%s']))"
+            "{display:none !important;}" % (name, name)
         )
+    if rules:
+        st.markdown(f"<style>{''.join(rules)}</style>", unsafe_allow_html=True)
+
+
+def _panel(name: str):
+    box = st.container()
+    with box:
+        st.markdown(
+            f'<span class="panel-mark" data-panel="{name}"></span>',
+            unsafe_allow_html=True,
+        )
+    return box
+
+
+def _search_tab(root: Path, profile_id: str, killed: str) -> None:
+    st.header("Search")
+    st.markdown("Describe the businesses you want. Press an example, or type your own and press Search.")
+    profile = load_profile(profile_id)
+    example = profile.search.examples[0] if profile.search.examples else "Registered firms in Phoenix"
+    st.info(f"Try this: press “{example}”. The list should name a business, how to reach them, and why they fit.")
+    st.text_input(
+        "Request",
+        key="search_query",
+        placeholder=example,
+        help="Example: Registered firms in Phoenix",
     )
-    for row in board["ranked"]:
-        with st.expander(f"Rules {row['prospect_id']}"):
-            for hit in row["rule_hits"]:
-                mark = "yes" if hit["matched"] else "no"
-                st.markdown(f"{hit['field']}: {hit['points']} points, matched {mark}")
+    for index, text in enumerate(profile.search.examples):
+        st.button(
+            text,
+            key=f"example_{index}",
+            disabled=bool(killed),
+            on_click=_queue_search,
+            args=(text,),
+        )
+    st.button("Search", key="search", disabled=bool(killed), on_click=_queue_search, type="primary")
+    _consume_search(root, profile)
+    if st.session_state.get("notice"):
+        st.error(st.session_state.notice)
+    view = st.session_state.get("search_view") or {}
+    if view.get("profile_id") != profile_id:
+        st.info("No matches yet. Press an example or change the request.")
+        return
+    _search_fields(profile, view)
+    for message in view.get("messages") or []:
+        st.warning(message)
+    if view.get("field_error"):
+        st.warning(view["field_error"])
+    for line in view.get("unsupported") or []:
+        st.info(line)
+    if view.get("summary"):
+        st.markdown(view["summary"])
+    rows = view.get("rows") or []
+    if rows:
+        st.markdown(
+            markdown_table(
+                [
+                    {
+                        "Business": row["business"],
+                        "Contact": row["label"],
+                        "Freshness": row["stale"],
+                        "Source": row["source"],
+                        "Why it fits": row["why"],
+                    }
+                    for row in rows
+                ],
+                ["Business", "Contact", "Freshness", "Source", "Why it fits"],
+            )
+        )
+        for row in rows:
+            with st.expander(row["business"]):
+                st.markdown(row["why"] or "No reason was recorded.")
+                if row.get("url"):
+                    st.markdown(f"[Open the public record]({row['url']})")
+                else:
+                    st.markdown("No source link on this record.")
+    else:
+        st.info("No matches yet. Press an example or change a field, then press Update results.")
+    if view.get("held_back_note"):
+        st.markdown(view["held_back_note"])
+    for item in view.get("prospects") or []:
+        if st.button("Add to pipeline", key=f"add_{item['prospect_id']}"):
+            _add_person(root, profile_id, item)
+    if rows or st.session_state.added_people:
+        st.button("Next", key="next_search", on_click=_go, args=("shortlist",), type="primary")
+
+
+def _queue_search(text: str | None = None) -> None:
+    if text is not None:
+        st.session_state.search_query = text
+    st.session_state.pending_search = st.session_state.get("search_query") or text or ""
+
+
+def _queue_update() -> None:
+    st.session_state.pending_update = True
+
+
+def _consume_search(root: Path, profile) -> None:
+    pending = st.session_state.pop("pending_search", "")
+    if pending:
+        _run_search(root, profile, pending)
+        _seed_fields(st.session_state.get("search_view") or {})
+        return
+    if st.session_state.pop("pending_update", False):
+        previous = st.session_state.get("search_view") or {}
+        if previous.get("profile_id") == profile.profile_id:
+            view = refresh_search(profile, previous, _edits(), root)
+            st.session_state.search_view = view
+            st.session_state.fields_for = _token(view)
+        return
+    view = st.session_state.get("search_view") or {}
+    if view.get("profile_id") == profile.profile_id and st.session_state.get("fields_for") != _token(view):
+        _seed_fields(view)
+
+
+def _edits() -> dict:
+    return {
+        "kind": st.session_state.get(FIELD_KIND, ""),
+        "location": st.session_state.get(FIELD_LOCATION, ""),
+        "date_from": st.session_state.get(FIELD_FROM, ""),
+        "date_to": st.session_state.get(FIELD_TO, ""),
+        "business_type": st.session_state.get(FIELD_BUSINESS, ""),
+        "contact": st.session_state.get(FIELD_CONTACT, ""),
+        "max_results": st.session_state.get(FIELD_MAX, ""),
+    }
+
+
+def _token(view: dict) -> str:
+    values = view.get("filter_values") or {}
+    return "|".join(
+        str(values.get(key) or "")
+        for key in ("naics", "permit_type", "city", "state", "date_from", "date_to", "business_type", "area")
+    )
+
+
+def _seed_fields(view: dict) -> None:
+    values = view.get("filter_values") or {}
+    kind = values.get("naics") or values.get("permit_type") or ""
+    location = values.get("city") or values.get("area") or ""
+    st.session_state[FIELD_KIND] = kind
+    st.session_state[FIELD_LOCATION] = location
+    st.session_state[FIELD_FROM] = values.get("date_from") or ""
+    st.session_state[FIELD_TO] = values.get("date_to") or ""
+    st.session_state[FIELD_BUSINESS] = values.get("business_type") or ""
+    st.session_state[FIELD_CONTACT] = "Any"
+    st.session_state[FIELD_MAX] = "10"
+    st.session_state.fields_for = _token(view)
+
+
+def _search_fields(profile, view: dict) -> None:
+    st.markdown("Change a field, then press Update results.")
+    kind_help = "A NAICS code such as 541512, or a permit type such as Building."
+    kind_example = (profile.search.naics[:1] or profile.search.permit_types[:1] or ["541512"])[0]
+    st.text_input(
+        "Industry or permit type",
+        key=FIELD_KIND,
+        placeholder=kind_example,
+        help=kind_help,
+    )
+    st.text_input(
+        "Location",
+        key=FIELD_LOCATION,
+        placeholder="Phoenix",
+        help="A city or area such as Phoenix.",
+    )
+    st.text_input(
+        "Date from",
+        key=FIELD_FROM,
+        placeholder="2026-05-24",
+        help="Example: 2026-05-24. Leave blank when the source has no date.",
+    )
+    st.text_input(
+        "Date to",
+        key=FIELD_TO,
+        placeholder="2026-11-20",
+        help="Example: 2026-11-20. Leave blank when the source has no date.",
+    )
+    st.text_input(
+        "Business size or type",
+        key=FIELD_BUSINESS,
+        placeholder="For Profit Organization",
+        help="Example: For Profit Organization.",
+    )
+    st.text_input(
+        "Contact needed",
+        key=FIELD_CONTACT,
+        placeholder="Named contact",
+        help="Type Named contact to keep only records with a person's name. Any keeps the full list.",
+    )
+    st.text_input(
+        "Max results",
+        key=FIELD_MAX,
+        placeholder="10",
+        help="Example: 10.",
+    )
+    st.button("Update results", key="update_results", on_click=_queue_update, type="primary")
+
+
+def _run_search(root: Path, profile, request: str) -> None:
+    st.session_state.notice = ""
+    try:
+        outcome = search(profile, request, root)
+    except KillSwitchEngaged as exc:
+        st.session_state.notice = str(exc)
+        return
+    except ProviderError as exc:
+        st.session_state.notice = (
+            f"{exc.role} {exc.provider}: {exc.line()}. switch to Offline or fix the account"
+        )
+        return
+    except ConfigError as exc:
+        st.session_state.notice = str(exc)
+        return
+    view = search_view(outcome)
+    view["profile_id"] = profile.profile_id
+    view["request"] = request
+    st.session_state.search_view = view
+
+
+def _add_person(root: Path, profile_id: str, item: dict) -> None:
+    prospect = Prospect.model_validate(item["prospect"])
+    people = [
+        row
+        for row in st.session_state.added_people
+        if row["prospect_id"] != prospect.prospect_id
+    ]
+    people.append(
+        {
+            "profile_id": profile_id,
+            "prospect_id": prospect.prospect_id,
+            "prospect": prospect.model_dump(mode="json"),
+        }
+    )
+    st.session_state.added_people = people
+    remember_add(root, prospect)
+
+
+def _shortlist_tab(profile_id: str) -> None:
+    st.header("Shortlist")
+    st.markdown("These are the people the rules ranked. Continue to Run when you want a draft.")
+    board = prospect_board(profile_id)
+    if not board["ranked"] and not board["excluded"]:
+        st.info("No one to show yet.")
+    else:
+        rows = [
+            {
+                "Person": row["prospect_id"],
+                "Score": row["score"],
+                "Fit": tier_label(row["tier"]),
+                "Ready": "Yes" if row["draft_eligible"] else "No",
+            }
+            for row in board["ranked"]
+        ]
+        st.markdown(markdown_table(rows, ["Person", "Score", "Fit", "Ready"]))
+        for row in board["ranked"]:
+            with st.expander(f"Rules {row['prospect_id']}"):
+                for hit in row["rule_hits"]:
+                    mark = "yes" if hit["matched"] else "no"
+                    st.markdown(f"{hit['field']}: {hit['points']} points, matched {mark}")
     st.subheader("Excluded")
-    st.markdown(markdown_table(board["excluded"], ["prospect_id", "reason"]))
+    excluded = [
+        {"Person": item["prospect_id"], "Reason": exclusion_label(item["reason"])}
+        for item in board["excluded"]
+    ]
+    st.markdown(markdown_table(excluded, ["Person", "Reason"]))
     st.subheader("Findings")
-    st.markdown(
-        markdown_table(board["findings"], ["prospect_id", "check_id", "message"])
-    )
+    findings = [
+        {"Person": item["prospect_id"], "Note": item["message"]}
+        for item in board["findings"]
+    ]
+    st.markdown(markdown_table(findings, ["Person", "Note"]))
+    if board["eligible_ids"]:
+        st.button("Next", key="next_shortlist", on_click=_go, args=("run",), type="primary")
 
 
 def _run_tab(root: Path, profile_id: str, killed: str) -> None:
     st.header("Run")
+    st.markdown("Pick a person and press Run. The steps below say what happened.")
+    added = [
+        item
+        for item in st.session_state.get("added_people") or []
+        if item["profile_id"] == profile_id
+    ]
+    if added:
+        st.subheader("Added this session")
+        st.markdown(
+            markdown_table(
+                [{"Person": item["prospect_id"]} for item in added],
+                ["Person"],
+            )
+        )
+    else:
+        st.info("No one added yet. Search, then click Add to pipeline.")
     board = prospect_board(profile_id)
-    eligible = board["eligible_ids"]
-    if not eligible:
-        st.info("No draft-eligible prospect.")
+    eligible = list(board["eligible_ids"])
+    extra = [item["prospect_id"] for item in added if item["prospect_id"] not in eligible]
+    choices = eligible + extra
+    if not choices:
+        st.info("No one is ready for a draft.")
+        st.button("Run", key="run", disabled=True)
         return
-    if st.session_state.get("prospect") not in eligible:
-        st.session_state.prospect = eligible[0]
-    prospect_id = st.selectbox("Prospect", eligible, key="prospect")
-    if st.button("Run", key="run", disabled=bool(killed)):
+    if st.session_state.get("prospect") not in choices:
+        st.session_state.prospect = choices[0]
+    prospect_id = st.selectbox("Person", choices, key="prospect")
+    if st.button("Run", key="run", disabled=bool(killed), type="primary"):
         _start_run(root, profile_id, prospect_id)
     if st.session_state.notice:
         st.error(st.session_state.notice)
-    if st.session_state.last_status:
-        st.markdown(f"Status: {st.session_state.last_status}")
-    for stage in st.session_state.stages:
-        _show_stage(stage)
     if st.session_state.last_run:
-        _show_attempts(Path(st.session_state.last_run))
+        _show_run(root, Path(st.session_state.last_run))
+        st.button("Next", key="next_run", on_click=_go, args=("review",), type="primary")
+
+
+def _show_run(root: Path, run_dir: Path) -> None:
+    if not run_dir.is_dir():
+        return
+    status = run_status(run_dir)
+    badge = status_badge(status.get("status", ""))
+    kind = "badge-wait"
+    if status.get("status") == "BLOCKED":
+        kind = "badge-stop"
+    elif status.get("status") == "APPROVED":
+        kind = "badge-ok"
+    st.markdown(f'<span class="{kind}">{badge}</span>', unsafe_allow_html=True)
+    for line in run_steps(root, run_dir):
+        if line[:1].isdigit() or line.startswith("Attempt") or line.startswith("Trying"):
+            st.markdown(line)
+        else:
+            st.caption(line)
+    st.button("Review", key="to_review", on_click=_go, args=("review",))
 
 
 def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
@@ -155,33 +501,24 @@ def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
     st.session_state.decision = None
     st.session_state.last_status = ""
     st.session_state.last_run = ""
-    profile = load_profile(profile_id)
-    prospect = next(item for item in load_prospects(profile) if item.prospect_id == prospect_id)
-    pipeline = load_pipeline_config()
     if st.session_state.get("red_team"):
         os.environ["LEADGEN_DEMO_TEMPT"] = "1"
     else:
         os.environ.pop("LEADGEN_DEMO_TEMPT", None)
+    profile = load_profile(profile_id)
+    prospect = _lookup_prospect(profile, prospect_id)
+    pipeline = load_pipeline_config()
     try:
-        result = run_prospect(
-            profile, prospect, pipeline, root, on_progress=_push_stage
-        )
+        result = run_prospect(profile, prospect, pipeline, root)
+    except KillSwitchEngaged as exc:
+        st.session_state.notice = str(exc)
+        return
     except ProviderError as exc:
-        _log(
-            root,
-            prospect_id,
-            "error",
-            exc.role,
-            "fail",
-            exc.line(),
-            provider=exc.provider,
-            model=exc.model,
-        )
         st.session_state.notice = (
             f"{exc.role} {exc.provider}: {exc.line()}. switch to Offline or fix the account"
         )
         return
-    except KillSwitchEngaged as exc:
+    except ConfigError as exc:
         st.session_state.notice = str(exc)
         return
     finally:
@@ -191,107 +528,75 @@ def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
         st.session_state.last_run = str(result.run_dir)
 
 
-def _push_stage(payload: dict) -> None:
-    st.session_state.stages.append(payload)
-
-
-def _show_stage(stage: dict) -> None:
-    seconds = stage.get("seconds")
-    clock = "" if seconds is None else f"{seconds}s"
-    mark = "pass" if stage.get("passed") else "fail"
-    provider = stage.get("provider") or ""
-    model = stage.get("model") or ""
-    line = " ".join(
-        part for part in (str(stage.get("role") or ""), provider, model, clock, mark) if part
-    )
-    st.markdown(line)
-    if stage.get("stage") in {"verifier", "retry", "gate", "evaluator"} and not stage.get("passed"):
-        st.markdown(str(stage.get("detail") or ""))
-
-
-def _show_attempts(run_dir: Path) -> None:
-    attempts = attempt_comparison(run_dir)
-    if len(attempts) < 2:
-        for row in attempts:
-            st.markdown(f"Attempt {row['attempt']}")
-        return
-    columns = st.columns(len(attempts))
-    for column, row in zip(columns, attempts):
-        with column:
-            st.markdown(f"Attempt {row['attempt']}")
-            _attempt_body(row)
-
-
-def _attempt_body(row: dict) -> None:
-    if row["passed"]:
-        st.markdown("pass")
-        st.markdown(row["hook"])
-        st.markdown(row["bridge"])
-        return
-    codes = ", ".join(row["codes"])
-    st.markdown(f"Blocked: {codes}")
-    st.markdown(
-        f'<div class="blocked-draft">{html.escape(row["hook"])}<br>{html.escape(row["bridge"])}</div>',
-        unsafe_allow_html=True,
-    )
+def _lookup_prospect(profile, prospect_id: str):
+    for item in st.session_state.get("added_people") or []:
+        if item["profile_id"] == profile.profile_id and item["prospect_id"] == prospect_id:
+            return Prospect.model_validate(item["prospect"])
+    return next(item for item in load_prospects(profile) if item.prospect_id == prospect_id)
 
 
 def _review_tab(root: Path, profile_id: str, killed: str) -> None:
     st.header("Review")
-    st.markdown('<span class="capex-label capex-human">Person</span>', unsafe_allow_html=True)
+    st.markdown("Read the note. Type your name, acknowledge any findings, then approve, edit, or reject.")
     run_dir = _selected_run(root)
     if run_dir is None:
         st.info("Run a prospect first.")
         st.button("Approve", key="approve", disabled=True)
         return
     status = run_status(run_dir)
-    st.markdown(f"Status: {status['status']}")
+    st.markdown(status_badge(status.get("status", "")))
     if status.get("evaluator_below_bar"):
-        st.markdown("Evaluator is still under the bar.")
+        st.markdown('<span class="badge-warn">The quality score is still under the bar.</span>', unsafe_allow_html=True)
     st.subheader("Email")
     st.code(rendered_text(run_dir))
-    st.subheader("Attempts")
-    attempts = attempt_comparison(run_dir)
-    if attempts:
-        columns = st.columns(len(attempts))
-        for column, row in zip(columns, attempts):
-            with column:
-                st.markdown(f"Attempt {row['attempt']}")
-                _attempt_body(row)
-    scores = evaluation_view(run_dir)
-    if scores:
-        st.subheader("Evaluator")
-        bar = scores["bar"]
-        for name in ("relevance", "specificity", "clarity", "tone"):
-            st.markdown(f"{name}: {scores[name]} (bar {bar})")
-        for suggestion in scores.get("suggestions") or []:
-            st.markdown(suggestion)
+    channels = contact_channels(run_dir)
+    if channels:
+        st.subheader("Contact channels")
+        for line in channels:
+            st.markdown(line)
     st.subheader("Findings")
     findings = status.get("findings") or []
     if findings:
         for finding in findings:
-            st.markdown(f"{finding['check_id']}: {finding['message']}")
+            st.markdown(f'<span class="badge-warn">{finding["message"]}</span>', unsafe_allow_html=True)
     else:
-        st.markdown("None.")
+        st.markdown("No findings.")
     st.checkbox("Acknowledge findings", key="ack")
-    name = st.text_input("Approver", key="approver")
+    name = st.text_input(
+        "Approver",
+        key="approver",
+        placeholder="Ada",
+        help="Example: Ada",
+    )
     fields = draft_fields(run_dir)
     if st.session_state.get("edit_run") != run_dir.name:
         st.session_state.edit_hook = fields["hook"]
         st.session_state.edit_bridge = fields["bridge"]
         st.session_state.edit_run = run_dir.name
-    hook = st.text_area("Hook", key="edit_hook")
-    bridge = st.text_area("Bridge", key="edit_bridge")
+    hook = st.text_area(
+        "Hook",
+        key="edit_hook",
+        placeholder="You mentioned the backlog.",
+        help="Example: You mentioned the backlog.",
+    )
+    bridge = st.text_area(
+        "Bridge",
+        key="edit_bridge",
+        placeholder="A person reviews the work for {{organization}}:",
+        help="Example: A person reviews the work before it goes out.",
+    )
     disabled = bool(killed)
     prospect_id = st.session_state.get("prospect") or status["prospect_id"]
     approve, edit, reject = st.columns(3)
-    if approve.button("Approve", key="approve", disabled=disabled):
+    if approve.button("Approve", key="approve", disabled=disabled, type="primary"):
         _store_decision(root, profile_id, prospect_id, "APPROVED", name, hook, bridge)
     if edit.button("Edit", key="edit", disabled=disabled):
         _store_decision(root, profile_id, prospect_id, "EDITED", name, hook, bridge)
     if reject.button("Reject", key="reject", disabled=disabled):
         _store_decision(root, profile_id, prospect_id, "REJECTED", name, hook, bridge)
     _show_decision()
+    if st.session_state.decision and st.session_state.decision[0] == 0:
+        st.button("Next", key="next_review", on_click=_go, args=("outbox",), type="primary")
 
 
 def _store_decision(root, profile_id, prospect_id, decision, name, hook, bridge) -> None:
@@ -334,48 +639,107 @@ def _selected_run(root: Path) -> Path | None:
 
 def _outbox_tab(root: Path) -> None:
     st.header("Outbox")
+    st.markdown("Approved notes are saved here. Nothing is emailed.")
     rows = outbox_rows(root)
     if not rows:
-        st.info("No emails yet.")
+        st.info("No emails yet. Approve a note on Review and it will show up here.")
         return
     for row in rows:
-        st.markdown(f"{row['file']} approved by {row['approver']}")
+        who = row["approver"] or "a person"
+        st.markdown(f'<span class="badge-ok">Approved by {who}</span>', unsafe_allow_html=True)
         st.code(row["text"])
+    st.button("Next", key="next_outbox", on_click=_go, args=("logbook",), type="primary")
 
 
 def _logbook_tab(root: Path) -> None:
     st.header("Logbook")
-    st.markdown('<span class="capex-label capex-record">Record</span>', unsafe_allow_html=True)
+    st.markdown("This is the record of the latest run.")
     run_dir = _selected_run(root)
     if run_dir is None:
-        st.info("No run selected.")
+        st.info("No run selected. Run someone first.")
         return
     rows = logbook(root, run_dir.name)
     if not rows:
         st.info("No events for this run.")
         return
-    st.markdown(
-        markdown_table(
-            rows,
-            [
-                "event_type",
-                "attempt_number",
-                "retry_of",
-                "retry_reason",
-                "red_team",
-                "provider",
-                "model",
-                "duration_ms",
-            ],
-        )
-    )
+    plain = [
+        {
+            "What happened": _event_label(row.get("event_type")),
+            "Attempt": row.get("attempt_number") or "",
+        }
+        for row in rows
+    ]
+    st.markdown(markdown_table(plain, ["What happened", "Attempt"]))
+
+
+def _event_label(event_type: str | None) -> str:
+    labels = {
+        "model_call": "Model call",
+        "gate": "Claim check",
+        "verification": "Draft check",
+        "evaluation": "Quality score",
+        "retry": "Trying again",
+        "approval": "Approval",
+        "outbox": "Saved note",
+        "refusal": "Not sent",
+        "error": "Problem",
+        "search": "Search",
+        "source_call": "Public record lookup",
+        "add_to_pipeline": "Added to the pipeline",
+    }
+    return labels.get(event_type or "", "Recorded step")
 
 
 def _funnel_tab(profile_id: str) -> None:
     st.header("Funnel")
+    st.markdown("These are the past results for this business.")
     stats = funnel_view(profile_id)
+    labels = {
+        "sent": "Sent",
+        "replied": "Replied",
+        "meeting": "Meetings",
+        "won": "Won",
+        "won_value": "Won value",
+        "reply_rate": "Reply rate",
+        "meeting_rate": "Meeting rate",
+        "win_rate": "Win rate",
+        "avg_deal": "Average deal",
+    }
     for key, value in stats.items():
-        st.markdown(f"{key}: {value}")
+        st.markdown(f"{labels.get(key, key)}: {value}")
+
+
+def _settings_tab(root: Path) -> None:
+    st.header("Settings")
+    st.markdown("Practice data uses saved examples. Live calls the accounts. Check keys does not show a key.")
+    labels = {
+        "tailor": "Tailor the pitch",
+        "drafter": "Write the email",
+        "evaluator": "Quality score",
+        "translator": "Read the request",
+        "reason": "Why this fits",
+    }
+    providers = {"google": "Google", "anthropic": "Anthropic", "openai": "OpenAI"}
+    for row in role_rows():
+        provider = providers.get(row["provider"], row["provider"])
+        st.markdown(f"{labels.get(row['role'], 'Step')}: {provider}, {row['model']}")
+    st.checkbox(
+        "Red-team toggle",
+        key="red_team",
+        help="On the next Run only, the first draft is tempted to offer a discount.",
+    )
+    if st.button("Check keys", key="check_keys"):
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        buffer = StringIO()
+        with redirect_stdout(buffer):
+            check_keys_main()
+        st.session_state.key_report = buffer.getvalue()
+    if st.session_state.key_report:
+        st.code(st.session_state.key_report)
+    mode = "Practice data" if current_mode() == "offline" else "Live"
+    st.caption(f"Data mode: {mode}")
 
 
 main()

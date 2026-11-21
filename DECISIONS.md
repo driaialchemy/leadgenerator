@@ -160,3 +160,11 @@ A prospect with no email still runs through the existing pipeline. The draft is 
 Search for the first two is SAM.gov by NAICS `541511` and `561110`. The letter profile searches SAM.gov for Phoenix, AZ, with no NAICS. Freshness is 400 days.
 
 `menu_order` defaults to 0. The new profiles set 1, so the picker still opens on the original profile. The Python names no profile id.
+
+## 2026-11-20 — Class page a person can use
+
+The screen is layout. Search, scoring, the verifier, and approval are unchanged. A widget key owns its value. The page sets that value in the button click, or before the widget is created, and it does not pass both a default and a key. An example writes the request into the box and runs the search. Update results calls `execute` with the edited fields and does not translate the sentence again.
+
+The sidebar is the business and Practice data or Live. A red notice appears only when the kill switch is on. Check keys and the red-team toggle are on Settings. Check keys still does not show a key. The stored status file still says `PENDING_APPROVAL`. The page says "Waiting for your approval".
+
+The theme is light. It lives in `.streamlit/config.toml` and `ui_theme.py`. Text on each surface meets a 4.5 contrast ratio. The page does not render an image, and the repo does not ship one. The earlier light-on-white inputs came from a light text color painted on the whole page, which the white inputs inherited.

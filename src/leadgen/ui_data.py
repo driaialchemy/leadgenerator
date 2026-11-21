@@ -280,6 +280,172 @@ def search_view(outcome) -> dict:
     }
 
 
+def profile_name(profile_id: str) -> str:
+    """The name a person sees. The stored value stays the file id."""
+    return load_profile(profile_id).display_name
+
+
+def tier_label(tier: str) -> str:
+    return {"hot": "Hot", "warm": "Warm", "cold": "Cold"}.get(tier, tier)
+
+
+def exclusion_label(reason: str) -> str:
+    return {
+        "do_not_contact": "Do not contact",
+        "no_consent": "No consent on file",
+    }.get(reason, reason)
+
+
+def status_badge(status: str) -> str:
+    """Plain result. The stored status file keeps its code."""
+    if status == "PENDING_APPROVAL":
+        return "Waiting for your approval"
+    if status == "BLOCKED":
+        return "Blocked. A person needs to see the problem."
+    if status == "REFUSED":
+        return "Not sent. This person is outside the rules."
+    if status == "APPROVED":
+        return "Approved"
+    return "Saved"
+
+
+def run_steps(root: Path, run_dir: Path) -> list[str]:
+    """Numbered sentences for one run. Model names stay on their own line."""
+    events = [
+        row
+        for row in logbook(root, Path(run_dir).name)
+        if row.get("event_type") == "model_call"
+    ]
+    lines: list[str] = []
+    tailors = [row for row in events if row.get("actor") == "tailor"]
+    if tailors:
+        lines.append("1. Tailor the pitch: done")
+        lines.append(_model_note(tailors[-1]))
+    attempts = attempt_comparison(run_dir)
+    if attempts:
+        first = attempts[0]
+        if first["passed"]:
+            lines.append(f"Attempt {first['attempt']}. Check for problems: passed")
+            lines.append("2. Write the email: done")
+            lines.append("3. Check for problems: passed")
+        else:
+            problem = _problem_text(run_dir, first["attempt"])
+            lines.append(f"Attempt {first['attempt']}. Problem found: {problem}")
+            if len(attempts) > 1:
+                nxt = attempts[1]
+                lines.append(f"Trying again (Attempt {nxt['attempt']}).")
+                if nxt["passed"]:
+                    lines.append("2. Write the email: done")
+                    lines.append("3. Check for problems: passed")
+                else:
+                    lines.append(
+                        f"3. Check for problems: still blocked. {_problem_text(run_dir, nxt['attempt'])}"
+                    )
+    writers = [row for row in events if row.get("actor") == "drafter"]
+    if writers:
+        lines.append(_model_note(writers[-1]))
+    scores = evaluation_view(run_dir)
+    if scores:
+        names = ("relevance", "specificity", "clarity", "tone")
+        bits = [f"{name} {scores[name]} of 5" for name in names]
+        passed = all(scores[name] >= scores["bar"] for name in names)
+        word = "Passed" if passed else "Needs another look"
+        lines.append(f"4. Quality score: {', '.join(bits)}. {word}.")
+        graders = [row for row in events if row.get("actor") == "evaluator"]
+        if graders:
+            lines.append(_model_note(graders[-1]))
+    return lines
+
+
+def refresh_search(profile, previous: dict, edits: dict, root: Path) -> dict:
+    """Rerun public-record search from the edited fields. Does not translate again."""
+    from leadgen.search import execute
+    from leadgen.sources.records import SearchFilter
+
+    stored = previous.get("filter_values") or {}
+    kind = str(edits.get("kind") or "").strip()
+    if profile.search.naics:
+        naics = [item.strip() for item in kind.split(",") if item.strip()]
+        permit_type = stored.get("permit_type") or ""
+    else:
+        naics = [item.strip() for item in str(stored.get("naics") or "").split(",") if item.strip()]
+        permit_type = kind
+    location = str(edits.get("location") or "").strip()
+    date_from = str(edits.get("date_from") or "").strip()
+    date_to = str(edits.get("date_to") or "").strip()
+    if not _date_ok(date_from) or not _date_ok(date_to):
+        view = dict(previous)
+        view["field_error"] = "Use a date like 2026-05-24."
+        return view
+    filt = SearchFilter(
+        sources=list(stored.get("sources") or []),
+        naics=naics,
+        state=stored.get("state") or "",
+        city=location,
+        business_type=str(edits.get("business_type") or "").strip(),
+        permit_type=permit_type,
+        date_from=date_from,
+        date_to=date_to,
+        area=location if profile.search.areas else (stored.get("area") or ""),
+    )
+    outcome = execute(
+        profile,
+        filt,
+        list(previous.get("unsupported_raw") or []),
+        Path(root),
+        request=str(previous.get("request") or "updated search"),
+    )
+    view = search_view(outcome)
+    view["profile_id"] = profile.profile_id
+    view["request"] = previous.get("request") or ""
+    view["field_error"] = ""
+    _limit_view(view, edits)
+    return view
+
+
 def draft_fields(run_dir: Path) -> dict:
     data = json.loads((Path(run_dir) / "draft.json").read_text(encoding="utf-8"))
     return {"hook": data.get("hook", ""), "bridge": data.get("bridge", "")}
+
+
+def _model_note(event: dict) -> str:
+    names = {"google": "Google", "anthropic": "Anthropic", "openai": "OpenAI"}
+    provider = names.get(str(event.get("provider") or ""), str(event.get("provider") or ""))
+    model = str(event.get("model") or "")
+    seconds = (event.get("duration_ms") or 0) / 1000
+    return f"{provider} {model} {seconds:.1f} s".strip()
+
+
+def _problem_text(run_dir: Path, attempt: int) -> str:
+    path = Path(run_dir) / f"verification.attempt{attempt}.json"
+    if not path.is_file():
+        return "The draft needs a change."
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    messages = [item.get("message", "") for item in payload.get("report", {}).get("blocking", [])]
+    messages = [item for item in messages if item]
+    return " ".join(messages) or "The draft needs a change."
+
+
+def _date_ok(value: str) -> bool:
+    text = value.strip()
+    if not text:
+        return True
+    if len(text) != 10 or text[4] != "-" or text[7] != "-":
+        return False
+    year, month, day = text.split("-")
+    return year.isdigit() and month.isdigit() and day.isdigit()
+
+
+def _limit_view(view: dict, edits: dict) -> None:
+    contact = str(edits.get("contact") or "").casefold()
+    if "named" in contact:
+        view["rows"] = [row for row in view["rows"] if row.get("label") == "Named contact"]
+        kept = {row["prospect_id"] for row in view["rows"]}
+        view["prospects"] = [item for item in view["prospects"] if item["prospect_id"] in kept]
+    raw = str(edits.get("max_results") or "").strip()
+    if raw.isdigit() and int(raw) > 0:
+        count = int(raw)
+        view["rows"] = view["rows"][:count]
+        view["prospects"] = view["prospects"][:count]
+    elif raw:
+        view["field_error"] = "Max results needs a whole number such as 10."

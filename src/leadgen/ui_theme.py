@@ -1,145 +1,147 @@
-"""Dark theme for the demo page. Presentation only."""
-
-import base64
-from functools import lru_cache
-from pathlib import Path
+"""Light theme for the class page. Presentation only."""
 
 import streamlit as st
 
-from leadgen.paths import repo_root
+# Text on a surface. Each pair is checked for a contrast ratio of at least 4.5.
+PAIRS = (
+    ("page", "#1B2430", "#FFFFFF"),
+    ("panel", "#1B2430", "#F4F6F8"),
+    ("muted", "#243140", "#FFFFFF"),
+    ("input", "#1B2430", "#FFFFFF"),
+    ("primary", "#FFFFFF", "#0D47A1"),
+    ("secondary", "#1B2430", "#E6EBF1"),
+    ("approved", "#FFFFFF", "#0D6B3D"),
+    ("warning", "#1B2430", "#FFE08A"),
+    ("blocked", "#FFFFFF", "#9B1C1C"),
+    ("chip", "#1B2430", "#D6E4FF"),
+    ("table", "#1B2430", "#FFFFFF"),
+    ("table_head", "#1B2430", "#E4EAF2"),
+    ("expander", "#1B2430", "#F4F6F8"),
+)
 
-# Processed photos. The originals live in assets/source/ and stay out of the public repo.
-_PAGE = "bg_page.webp"
-_SIDEBAR = "bg_sidebar.webp"
-HERO_NAME = "hero_pipeline.webp"
-
-_BASE = """
-/* Chips name who is speaking: the model, the code, the log, or the person. */
-.capex-label {
-  display: inline-block;
-  margin: 0.2rem 0 0.6rem 0;
-  padding: 0.15rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #080C18;
+_CSS = """
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"],
+[data-testid="stSidebar"], [data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li, [data-testid="stMarkdownContainer"] td,
+[data-testid="stCaptionContainer"] {
+  color: #1B2430;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
 }
-.capex-ai { background: #B48CFF; }
-.capex-code { background: #5BE3A1; }
-.capex-record { background: #7FB8FF; }
-.capex-human { background: #FFC56B; }
-
-/* Large type for the back of the room. */
-.stApp,
-[data-testid="stAppViewContainer"],
-[data-testid="stSidebar"],
-[data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li,
-[data-testid="stMarkdownContainer"] td {
-  font-size: 1.25rem;
-  color: #F5F7FB;
+h1, h2, h3 { color: #1B2430; letter-spacing: 0; }
+[data-testid="stMain"] .block-container {
+  background: #FFFFFF;
+  padding-top: 1.5rem;
 }
-h1, h2, h3 { color: #FFFFFF; }
+[data-testid="stSidebar"] {
+  background: #F4F6F8;
+  border-right: 1px solid #D5DDE6;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+[data-testid="stNumberInput"] input {
+  color: #1B2430 !important;
+  -webkit-text-fill-color: #1B2430 !important;
+  background: #FFFFFF !important;
+  border-radius: 10px;
+}
 [data-testid="stMarkdownContainer"] table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 1.2rem;
-}
-[data-testid="stMarkdownContainer"] th,
-[data-testid="stMarkdownContainer"] td {
-  border: 1px solid rgba(80, 160, 230, 0.7);
-  padding: 0.45rem 0.7rem;
-  color: #F5F7FB;
-  background: #141E34;
-  text-align: left;
-}
-.stButton button { font-size: 1.15rem; color: #081018; }
-.blocked-draft {
-  background: #8C2F2F;
-  color: #FFFFFF;
-  padding: 0.5rem 0.7rem;
-  border-radius: 8px;
-}
-
-/* The main column is a glass panel so the photo stays behind the words. */
-[data-testid="stMain"] .block-container {
-  background: rgba(12, 18, 34, 0.85);
-  border: 1px solid rgba(90, 200, 255, 0.35);
-  border-radius: 18px;
-  padding: 1.5rem;
-}
-
-/* Tables and metric cards stay on a solid fill, not on the photograph. */
-[data-testid="stDataFrame"],
-[data-testid="stTable"],
-[data-testid="stMetric"] {
-  background: #141E34;
-  border: 1px solid rgba(80, 160, 230, 0.6);
+  background: #FFFFFF;
   border-radius: 12px;
 }
+[data-testid="stMarkdownContainer"] th {
+  background: #E4EAF2;
+  color: #1B2430;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+}
+[data-testid="stMarkdownContainer"] td {
+  background: #FFFFFF;
+  color: #1B2430;
+  padding: 0.55rem 0.7rem;
+  border-top: 1px solid #D5DDE6;
+}
+.stButton button[kind="primary"], .stButton button[data-testid="stBaseButton-primary"] {
+  background: #0D47A1;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+}
+.stButton button[kind="secondary"], .stButton button[data-testid="stBaseButton-secondary"] {
+  background: #E6EBF1;
+  color: #1B2430;
+  border: 1px solid #C5D0DC;
+  border-radius: 10px;
+}
+div[data-testid="stExpander"] {
+  background: #F4F6F8;
+  border: 1px solid #D5DDE6;
+  border-radius: 12px;
+}
+.step-strip {
+  color: #243140;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+.badge-wait {
+  display: inline-block;
+  background: #0D47A1;
+  color: #FFFFFF;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-weight: 700;
+}
+.badge-ok {
+  display: inline-block;
+  background: #0D6B3D;
+  color: #FFFFFF;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-weight: 700;
+}
+.badge-warn {
+  display: inline-block;
+  background: #FFE08A;
+  color: #1B2430;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-weight: 700;
+}
+.badge-stop {
+  display: inline-block;
+  background: #9B1C1C;
+  color: #FFFFFF;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-weight: 700;
+}
+.model-note { color: #243140; font-size: 0.9rem; }
 """
 
 
-def _folder(assets_dir: Path | None) -> Path:
-    if assets_dir is not None:
-        return Path(assets_dir)
-    return repo_root() / "assets"
+def contrast_ratio(foreground: str, background: str) -> float:
+    """WCAG contrast ratio for two #RRGGBB colors."""
+    lighter = max(_luminance(foreground), _luminance(background))
+    darker = min(_luminance(foreground), _luminance(background))
+    return (lighter + 0.05) / (darker + 0.05)
 
 
-def hero_path(assets_dir: Path | None = None) -> Path | None:
-    """Banner file, or None when it has not been added yet."""
-    path = _folder(assets_dir) / HERO_NAME
-    return path if path.is_file() else None
+def apply_theme() -> str:
+    """Inject the light theme and return the CSS."""
+    st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
+    return _CSS
 
 
-@lru_cache(maxsize=None)
-def _image_base64(path_str: str) -> str:
-    """Read one image's base64 once. Later calls reuse the cached string."""
-    return base64.b64encode(Path(path_str).read_bytes()).decode("ascii")
+def _luminance(color: str) -> float:
+    channels = [int(color.lstrip("#")[index : index + 2], 16) / 255 for index in (0, 2, 4)]
 
+    def linear(channel: float) -> float:
+        if channel <= 0.04045:
+            return channel / 12.92
+        return ((channel + 0.055) / 1.055) ** 2.4
 
-def _uri(path: Path) -> str | None:
-    """Embed one image. A missing file returns None so that rule is skipped."""
-    if not path.is_file():
-        return None
-    kind = "image/webp" if path.suffix.lower() == ".webp" else "image/png"
-    return f"data:{kind};base64,{_image_base64(str(path.resolve()))}"
-
-
-def _page_rule(uri: str) -> str:
-    return f"""
-.stApp {{
-  background-color: #080C18;
-  background-image: url("{uri}");
-  background-size: cover;
-  background-attachment: fixed;
-  background-position: center;
-}}
-"""
-
-
-def _sidebar_rule(uri: str) -> str:
-    return f"""
-[data-testid="stSidebar"] {{
-  background-image: linear-gradient(rgba(8, 12, 24, 0.55), rgba(8, 12, 24, 0.55)), url("{uri}");
-  background-size: cover;
-  background-position: center;
-}}
-"""
-
-
-def apply_theme(assets_dir: Path | None = None) -> str:
-    """Inject the theme CSS and return it. Missing images are left out."""
-    folder = _folder(assets_dir)
-    parts = [_BASE]
-    page = _uri(folder / _PAGE)
-    sidebar = _uri(folder / _SIDEBAR)
-    if page:
-        parts.append(_page_rule(page))
-    if sidebar:
-        parts.append(_sidebar_rule(sidebar))
-    css = "\n".join(parts)
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-    return css
+    red, green, blue = [linear(channel) for channel in channels]
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue

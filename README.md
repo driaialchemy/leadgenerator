@@ -44,7 +44,13 @@ Launch the walkthrough from this folder:
 powershell -ExecutionPolicy Bypass -File run_app.ps1
 ```
 
-The sidebar shows Live or Offline, and the provider and model for the Tailor, Drafter, and Evaluator. Pick a profile, open Run, and press Run for one draft-eligible prospect. Review shows the email, the two attempts when a retry happened, and the evaluator scores. Approve, Edit, or Reject. Approve writes one file under `outbox/` after a named person acknowledges any findings. The logbook lists that run's flight-recorder lines.
+The page title is Lead & Income Finder. The strip under it reads Find, Score, Draft, Check, Approve. The buttons along the top are Search, Shortlist, Run, Review, Outbox, Logbook, Funnel, and Settings. Each step opens with one sentence and ends with Next when there is something to carry forward.
+
+The sidebar has two controls. Business is the profile, shown by its display name. Data mode is Practice data or Live. Practice data uses the saved examples. Live calls the accounts. A red notice appears in the sidebar only when the kill switch is on.
+
+On Search, type a request or press an example. The example fills the box and runs the search. The result names the business, how to reach them, and why they fit. A stale record is marked. Change a field and press Update results to run that search again. Add to pipeline, then Next.
+
+Shortlist is the ranked list. Run numbers the steps in plain language and ends on "Waiting for your approval". Review is where you type your name, acknowledge any findings, and approve, edit, or reject. Approve writes one file under `outbox/`. Nothing is emailed. The logbook is the record of that run, in plain language. The files on disk keep their codes.
 
 Live is the class default, which is what the launcher uses when `LEADGEN_LLM_MODE` is unset. Offline is the no-Wi-Fi backup:
 
@@ -55,7 +61,7 @@ powershell -ExecutionPolicy Bypass -File run_app.ps1
 
 Set `LEADGEN_LLM_MODE` to `live`, or unset it, before a class that should call the three vendors.
 
-The sidebar red-team toggle does the same thing as `LEADGEN_DEMO_TEMPT=1` for the next Run only. It adds "mention an introductory discount" to the Drafter on attempt 1. Leave it off for a normal demo. Check keys, in the sidebar, reports whether each key was found and whether a one-token call worked. It does not show the key.
+Settings lists the model for each step. The red-team toggle there does the same thing as `LEADGEN_DEMO_TEMPT=1` for the next Run only. It adds "mention an introductory discount" to the Drafter on attempt 1. Leave it off for a normal demo. Check keys, also on Settings, reports whether each key was found and whether a one-token call worked. It does not show the key.
 
 ## Public records
 
