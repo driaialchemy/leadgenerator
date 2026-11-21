@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M9 done locally, not pushed. An approved note can be saved as a Gmail or Outlook draft, or sent from that account. Practice still writes one outbox file. Five local commits are waiting. The public repo is https://github.com/driaialchemy/leadgenerator.
+M9 done, pushed. An approved note can be saved as a Gmail or Outlook draft, or sent from that account. Practice still writes one outbox file. The public repo is https://github.com/driaialchemy/leadgenerator.
 
 ## Done
 
@@ -24,7 +24,7 @@ M9 done locally, not pushed. An approved note can be saved as a Gmail or Outlook
 
 ## Next
 
-M6, M7, M8, M8.1, and M9 are local commits. Wait for "approved push" before pushing anything.
+M6, M7, M8, M8.1, and M9 are on main.
 
 ## Known issues
 
