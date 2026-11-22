@@ -1,0 +1,100 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "NUMBER": "T1",
+    "ADDRESS": "5031 E VALENCIA RD",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial New Building Permit",
+    "ISSUEDATE": "2026-11-19",
+    "PROJECTNAME": "Valencia Auto Parts 10780",
+    "DESCRIPTION": "New Construction of an auto parts retail store"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T2",
+    "ADDRESS": "6444 S FONTANA AV",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial New Building Permit",
+    "ISSUEDATE": "2026-10-20",
+    "PROJECTNAME": "Fontana Storage Hub",
+    "DESCRIPTION": "BUILDING 7 / 30 STORAGE UNITS"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T3",
+    "ADDRESS": "6444 S FONTANA AV",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial New Building Permit",
+    "ISSUEDATE": "2026-11-01",
+    "PROJECTNAME": "Fontana Storage Hub",
+    "DESCRIPTION": "BUILDING 4 / 30 STORAGE UNITS"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T4",
+    "ADDRESS": "8311 E STELLA RD",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial Fence/Wall Permit",
+    "ISSUEDATE": "2026-11-05",
+    "PROJECTNAME": "Eastside Congregation",
+    "DESCRIPTION": "Privacy fence addition"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T5",
+    "ADDRESS": "6586 E PASEO PLACA",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial Addition/Alteration Permit",
+    "ISSUEDATE": "2026-11-10",
+    "PROJECTNAME": "PRJ000427 Equip Well E-032A",
+    "DESCRIPTION": "Equipping a newly drilled well"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T6",
+    "ADDRESS": "1100 E SILVERLAKE RD",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial Addition/Alteration Permit",
+    "ISSUEDATE": "2026-11-11",
+    "PROJECTNAME": "1100 E Silverlake RD",
+    "DESCRIPTION": "Park restroom remodel"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T7",
+    "ADDRESS": "6002 S FONTANA AV",
+    "CITY": "TUCSON",
+    "TYPE": "Demolition Permit",
+    "WORKCLASS": "Commercial Demolition Permit",
+    "ISSUEDATE": "2026-11-08",
+    "PROJECTNAME": "demo fire damaged unit",
+    "DESCRIPTION": "take down unit"
+   }
+  },
+  {
+   "attributes": {
+    "NUMBER": "T8",
+    "ADDRESS": "800 S CONCERT PL",
+    "CITY": "TUCSON",
+    "TYPE": "Commercial Building",
+    "WORKCLASS": "Commercial Addition/Alteration Permit",
+    "ISSUEDATE": "2026-05-10",
+    "PROJECTNAME": "Concert Place Performance Center",
+    "DESCRIPTION": "Renovation of the existing performance center"
+   }
+  }
+ ]
+}

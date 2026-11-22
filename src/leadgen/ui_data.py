@@ -288,7 +288,11 @@ def search_view(outcome) -> dict:
             {
                 "business": hit.business_name,
                 "city": hit.record.city,
-                "industry": title_for(code) or code,
+                "industry": _industry_cell(hit.record, code),
+                "project": _clip(hit.record.project, 90),
+                "permits": hit.record.permit_count or "",
+                "latest": _latest_text(hit.record),
+                "contact_text": _contact_text(hit.record),
                 "contact_name": hit.record.contact_name,
                 "contact_title": hit.record.contact_title,
                 "channels": _channels(hit.record),
@@ -298,7 +302,7 @@ def search_view(outcome) -> dict:
                 "label": hit.label,
                 "stale": "Stale record" if hit.stale else "",
                 "source": SOURCE_LABELS.get(hit.source, hit.source),
-                "why": hit.reason or f"{hit.label}, {hit.record.city or 'city not listed'}. Scored {hit.score} of 100.",
+                "why": hit.reason or _why(hit),
                 "prospect_id": hit.prospect_id,
                 "url": hit.record.source_url,
             }
@@ -306,13 +310,13 @@ def search_view(outcome) -> dict:
         prospects.append(
             {"prospect_id": hit.prospect_id, "prospect": hit.prospect.model_dump(mode="json")}
         )
-    summary = (
-        f"{outcome.total_matches} matches, {outcome.named_contacts} named contacts, "
-        f"{outcome.shown} shown, {outcome.held_back} held back"
-    )
-    extra = getattr(outcome, "size_line", "") or ""
-    if extra:
-        summary = f"{summary}. {extra}"
+    counts = {
+        "found": outcome.total_matches,
+        "named": outcome.named_contacts,
+        "held": outcome.held_back,
+        "size": getattr(outcome, "size_line", "") or "",
+    }
+    summary = _summary(counts, len(rows))
     filt = outcome.filter
     parts = [f"sources: {', '.join(filt.sources)}"]
     for label, value in (
@@ -329,6 +333,7 @@ def search_view(outcome) -> dict:
             parts.append(f"{label}: {value}")
     return {
         "summary": summary,
+        "counts": counts,
         "shown": outcome.shown,
         "rows": rows,
         "prospects": prospects,
@@ -356,6 +361,71 @@ def search_view(outcome) -> dict:
         "statuses": list(getattr(outcome, "statuses", None) or []),
         "size_note": live_size_note(current_mode()),
     }
+
+
+def _clip(text: str, size: int) -> str:
+    clean = " ".join(str(text or "").split())
+    if sum(char.isalpha() for char in clean) < 3:
+        return ""
+    return clean if len(clean) <= size else clean[: size - 1].rstrip() + "…"
+
+
+def _why(hit) -> str:
+    """A short reason built from the record. Used when the written reason is not available."""
+    record = hit.record
+    parts = []
+    if record.plumbing_tie == "strong":
+        parts.append("permit points at plumbing work")
+    elif record.plumbing_tie == "some":
+        parts.append("commercial building permit")
+    if record.permit_count > 1:
+        parts.append(f"{record.permit_count} permits")
+    if record.contact_name.strip():
+        parts.append("named contact")
+    text = "; ".join(parts) or "public record in the service area"
+    return f"{text[0].upper()}{text[1:]}."
+
+
+def _summary(counts: dict, showing: int) -> str:
+    """Plain words. The size breakdown appears only when a size was chosen and records carry one."""
+    found = counts["found"]
+    noun = "business" if found == 1 else "businesses"
+    parts = [
+        f"{found} {noun} found",
+        f"{counts['named']} with a named contact",
+        f"showing {showing}",
+    ]
+    if counts.get("held"):
+        parts.append(f"{counts['held']} held back")
+    text = " · ".join(parts)
+    if counts.get("size"):
+        text = f"{text}. {counts['size']}"
+    return text
+
+
+def _industry_cell(record, code: str) -> str:
+    from leadgen.industry import title_for
+    from leadgen.permits import PERMIT_SOURCES, permit_label
+
+    title = title_for(code) if code else ""
+    if title:
+        return title
+    if record.source in PERMIT_SOURCES and record.permit_type:
+        return f"From permit: {permit_label(record.permit_type)}"
+    return code
+
+
+def _latest_text(record) -> str:
+    day = record.permit_date or record.record_date
+    return day.isoformat() if day else ""
+
+
+def _contact_text(record) -> str:
+    name = record.contact_name.strip()
+    if not name:
+        return "No named contact"
+    title = record.contact_title.strip()
+    return f"Named contact: {name}, {title}" if title else f"Named contact: {name}"
 
 
 def _channels(record) -> str:
@@ -549,3 +619,5 @@ def _limit_view(view: dict, edits: dict) -> None:
         view["prospects"] = view["prospects"][:count]
     elif raw:
         view["field_error"] = "Max results needs a whole number such as 10."
+    if view.get("counts"):
+        view["summary"] = _summary(view["counts"], len(view["rows"]))

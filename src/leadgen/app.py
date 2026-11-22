@@ -344,23 +344,28 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         _market_card(view.get("market"))
     rows = view.get("rows") or []
     if rows:
-        st.markdown(
-            markdown_table(
-                [
-                    {
-                        "Business": row["business"],
-                        "Industry": row.get("industry") or "",
-                        "Size": row.get("size") or "Size not in public record",
-                        "Contact": row["label"],
-                        "Freshness": row["stale"],
-                        "Source": row["source"],
-                        "Why it fits": row["why"],
-                    }
-                    for row in rows
-                ],
-                ["Business", "Industry", "Size", "Contact", "Freshness", "Source", "Why it fits"],
-            )
-        )
+        has_size = any("employees" in str(row.get("size") or "") for row in rows)
+        columns = ["Business", "Industry", "Project", "Contact", "Permits", "Latest permit", "Score"]
+        if has_size:
+            columns.insert(4, "Size")
+        columns += ["Source", "Why it fits"]
+        table = []
+        for row in rows:
+            fresh = " · ".join(part for part in (row.get("latest"), row.get("stale")) if part)
+            item = {
+                "Business": row["business"],
+                "Industry": row.get("industry") or "",
+                "Project": row.get("project") or "",
+                "Contact": row.get("contact_text") or row["label"],
+                "Permits": row.get("permits") or "",
+                "Size": row.get("size") or "",
+                "Latest permit": fresh,
+                "Score": row.get("score") or 0,
+                "Source": row["source"],
+                "Why it fits": row["why"],
+            }
+            table.append(item)
+        st.markdown(markdown_table(table, columns))
         for row in rows:
             with st.expander(row["business"]):
                 st.markdown(row["why"] or "No reason was recorded.")

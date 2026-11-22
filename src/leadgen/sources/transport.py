@@ -5,6 +5,7 @@ import urllib.parse
 import urllib.request
 
 TIMEOUT_SECONDS = 20
+KEY_HELP = r"Add {name} to your key file in C:\Users\msell\secrets."
 
 
 class SourceFailure(RuntimeError):
@@ -29,9 +30,9 @@ def plain_message(source: str, kind: str) -> str:
     if kind == "timeout":
         return f"{label} timed out."
     if kind == "sam_key":
-        return f"{label} needs SAM_API_KEY."
+        return f"{label} is not set up. {KEY_HELP.format(name='SAM_API_KEY')}"
     if kind == "edgar_agent":
-        return f"{label} needs LEADGEN_EDGAR_USER_AGENT."
+        return f"{label} is not set up. {KEY_HELP.format(name='LEADGEN_EDGAR_USER_AGENT')}"
     return f"{label} did not respond."
 
 

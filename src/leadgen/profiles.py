@@ -73,6 +73,8 @@ def _check_rule_fields(profile: Profile) -> None:
         declared = profile.attributes.get(rule.field)
         if rule.rule_type == "range":
             allowed = rule.field in CORE_RANGE_FIELDS or declared == "int"
+        elif rule.rule_type == "grade":
+            allowed = declared == "str"
         else:
             allowed = rule.field in CORE_IN_FIELDS or declared == "str"
         if not allowed:

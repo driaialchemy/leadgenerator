@@ -16,7 +16,10 @@ SOURCE_PAGE = "https://www.census.gov/programs-surveys/cbp/data.html"
 FAILURE = (
     "County Business Patterns did not respond. The business search is unchanged."
 )
-NEEDS_KEY = "County Business Patterns needs CENSUS_API_KEY. The business search is unchanged."
+NEEDS_KEY = (
+    "County Business Patterns is not set up. Add CENSUS_API_KEY to your key file in "
+    r"C:\Users\msell\secrets. The business search is unchanged."
+)
 _UNAVAILABLE = "unavailable"
 _SIZE_CODES = tuple(code for band in BANDS for code in band.census)
 

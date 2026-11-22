@@ -18,7 +18,7 @@ Source = Literal[
 ConsentStatus = Literal["opt_in", "existing_relationship", "none"]
 Stage = Literal["sent", "replied", "meeting", "won", "lost_after_meeting"]
 AttributeType = Literal["int", "str"]
-RuleType = Literal["range", "in"]
+RuleType = Literal["range", "in", "grade"]
 
 
 class Prospect(BaseModel):
@@ -80,10 +80,21 @@ class ScoringRule(BaseModel):
     min: int | None = None
     max: int | None = None
     values: list[str] | None = None
+    grades: dict[str, int] | None = None
     points: int = Field(ge=0)
 
     @model_validator(mode="after")
     def shape_matches_type(self) -> "ScoringRule":
+        if self.rule_type == "grade":
+            if self.values is not None or self.min is not None or self.max is not None:
+                raise ValueError("A grade rule takes only grades and points.")
+            if not self.grades:
+                raise ValueError("A grade rule needs a grades map.")
+            if any(value < 0 or value > self.points for value in self.grades.values()):
+                raise ValueError("Each grade must be between 0 and the rule points.")
+            return self
+        if self.grades is not None:
+            raise ValueError("Only a grade rule takes grades.")
         if self.rule_type == "range":
             if self.values is not None:
                 raise ValueError("A range rule does not take a values list.")
@@ -170,6 +181,23 @@ class MetroConfig(BaseModel):
     county_fips: str
 
 
+class PermitRules(BaseModel):
+    """How city permit rows become businesses. Words and bands live in the profile YAML."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    business_order: list[str] = Field(default_factory=lambda: ["owner", "site_name", "contractor"])
+    strong_words: list[str] = Field(default_factory=list)
+    customer_words: list[str] = Field(default_factory=list)
+    include_words: list[str] = Field(default_factory=list)
+    exclude_words: list[str] = Field(default_factory=list)
+    description_words: list[str] = Field(default_factory=list)
+    street_words: list[str] = Field(default_factory=list)
+    company_words: list[str] = Field(default_factory=list)
+    recency_days: dict[str, int] = Field(default_factory=dict)
+    many_permits: int = Field(default=3, ge=2)
+
+
 class SearchConfig(BaseModel):
     """Allowlists and sources for a plain-language search. Empty means unused."""
 
@@ -185,6 +213,7 @@ class SearchConfig(BaseModel):
     county: CountyConfig = Field(default_factory=CountyConfig)
     metros: list[MetroConfig] = Field(default_factory=list)
     sources: list[SourceSpec] = Field(default_factory=list)
+    permits: PermitRules = Field(default_factory=PermitRules)
 
 
 class Brand(BaseModel):

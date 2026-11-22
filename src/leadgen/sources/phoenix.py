@@ -84,27 +84,35 @@ def _type_ok(actual: str, wanted: str) -> bool:
 
 
 def _feature(attrs: dict) -> PublicRecord:
+    """Raw fields only. Which one is the business is decided later, from the profile rules."""
     issued = _issued(attrs.get("PERMIT_ISSUE_DATE"))
-    contact = str(attrs.get("CONTACT") or "").strip()
-    owner = str(attrs.get("OWNER_NAME") or "").strip()
     record_id = str(attrs.get("RECORD_ID") or attrs.get("PERMIT_NUMBER") or "").strip()
     address = str(attrs.get("ADDRESS") or "").strip()
+    owner = str(attrs.get("OWNER_NAME") or "").strip()
+    contact = str(attrs.get("CONTACT") or "").strip()
+    site = str(attrs.get("PERMIT_NAME") or "").strip()
+    scope = str(attrs.get("SCOPE") or attrs.get("PROJECT") or "").strip()
     return PublicRecord(
         source="phoenix_permits",
-        source_record_id=record_id or address or owner,
+        source_record_id=record_id or address or owner or site,
         source_url=f"{ENDPOINT.rsplit('/', 1)[0]}/{record_id}" if record_id else ENDPOINT,
         record_date=issued,
-        business_name=owner or str(attrs.get("PERMIT_NAME") or "").strip() or contact,
-        contact_name=contact,
+        owner=owner,
+        site_name=site,
+        contractor=contact,
         mailing_address=address,
         city="Phoenix",
         state="AZ",
-        project=str(attrs.get("PROJECT") or attrs.get("SCOPE") or "").strip(),
+        project=_first_line(scope or site),
         permit_type=str(attrs.get("PERMIT_TYPE") or "").strip(),
         permit_value="",
-        contractor=contact or owner,
         permit_date=issued,
     )
+
+
+def _first_line(text: str) -> str:
+    line = " ".join(text.splitlines()[0].split()) if text.strip() else ""
+    return line[:160]
 
 
 def _issued(value) -> date | None:

@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M12 done locally, not pushed. The page has Acme's own look: a cyan top bar, a hero with a wordmark, and a blue, sky, and slate palette. The words in the bar and hero come from `brand:` in `config/profiles/acme_plumbing.yaml`. Colors live only in `src/leadgen/ui_theme.py` and `.streamlit/config.toml`. Screen only; search, sources, pipeline, scoring, verifier, approval, mail, and the recorder are untouched. M10 and M11 are also local commits. The public repo is https://github.com/driaialchemy/leadgenerator.
+M11.1 done locally, not pushed. Search results are now businesses, not permit rows: names come from company fields or valid site names, irrelevant permits are left out and counted, repeat businesses collapse to one row, a contact shows only for a real person's name, and the score spreads 44 to 76 on live data. The translator parses live replies. M10, M11, M12, and M11.1 are local commits on top of `origin/main`. The public repo is https://github.com/driaialchemy/leadgenerator.
 
 ## Done
 
@@ -29,13 +29,13 @@ M12 done locally, not pushed. The page has Acme's own look: a cyan top bar, a he
 
 ## Next
 
-M10, M11, and M12 are committed locally. Push when the owner replies "approved push". M6 through M9 are already on main. M10 is the commit under M11 and is also unpushed.
+M10, M11, M12, and M11.1 are committed locally. Push when the owner replies "approved push". M6 through M9 are already on main. M10 is the commit under M11 and is also unpushed.
 
 - Hero photo: Mike supplies `assets/source/hero_shower.jpg` (git-ignored). Until it exists the hero is a blue-to-cyan gradient with a water drop. The first render with a photo writes `assets/hero_shower_web.jpg`, under 150 KB, and reuses it.
 
 ## Known issues
 
 - No hero photo is in the repo yet, so the gradient shows.
-- Live search needs `SAM_API_KEY`, `LEADGEN_EDGAR_USER_AGENT`, and `CENSUS_API_KEY`. None is in the key file, so only the Phoenix and Tucson permit sources return rows.
-- Permit sources give a permit or project name and a contractor contact, not a verified business. They carry no email.
+- Live search needs `SAM_API_KEY`, `LEADGEN_EDGAR_USER_AGENT`, and `CENSUS_API_KEY` in the key file. Until they are there only the Phoenix and Tucson permit sources return rows, and each missing key shows "Add NAME to your key file in C:\Users\msell\secrets". Keys are read on every search, so a restart is not needed.
+- Permit sources give a site name or a contractor company, not a verified customer. They carry no email, so drafts work but nothing can be sent. Picking an industry does not narrow permits, because permits have no industry. The page says so.
 - Old runs from removed profiles are still in `runs/` and `outbox/`. The tiles skip them.

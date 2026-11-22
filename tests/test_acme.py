@@ -311,6 +311,9 @@ def _prospect():
             "named_contact": "yes",
             "recent_permit": "yes",
             "hiring_fit": "yes",
+            "permit_recency": "d90",
+            "plumbing_tie": "strong",
+            "permit_count": "many",
         },
     )
 

@@ -1,0 +1,88 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "RECORD_ID": "p1",
+    "PERMIT_NUMBER": "CT-1",
+    "PERMIT_TYPE": "Construction and Trades Commercial;Commercial;Commercial/Industrial;Tenant Improvement",
+    "PERMIT_NAME": "SUNSET HILLS ASSISTED LIVING",
+    "SCOPE": "Interior tenant improvement",
+    "CONTACT": "Sam Okafor",
+    "OWNER_NAME": null,
+    "PERMIT_ISSUE_DATE": "2026-11-10"
+   }
+  },
+  {
+   "attributes": {
+    "RECORD_ID": "p2",
+    "PERMIT_NUMBER": "SG-2",
+    "PERMIT_TYPE": "Sign Permit;Commercial;Commercial/Industrial;Wall/Window",
+    "PERMIT_NAME": "CORNER MART",
+    "SCOPE": "Wall signs for conversion",
+    "CONTACT": null,
+    "OWNER_NAME": null,
+    "PERMIT_ISSUE_DATE": "2026-11-12"
+   }
+  },
+  {
+   "attributes": {
+    "RECORD_ID": "p3",
+    "PERMIT_NUMBER": "CT-3",
+    "PERMIT_TYPE": "Construction and Trades Commercial;Commercial;Commercial/Industrial;Plumbing/Mechanical Work",
+    "PERMIT_NAME": "7TH & DEER VALLEY",
+    "SCOPE": "Rough plumbing for a new building",
+    "CONTACT": "Desert Pipe Works Inc",
+    "OWNER_NAME": null,
+    "PERMIT_ISSUE_DATE": "2026-08-01"
+   }
+  },
+  {
+   "attributes": {
+    "RECORD_ID": "p4",
+    "PERMIT_NUMBER": "CT-4",
+    "PERMIT_TYPE": "Construction and Trades Commercial;Commercial;Commercial/Industrial;Tenant Improvement",
+    "PERMIT_NAME": "3 SIDEWALK PANELS ON SEC",
+    "SCOPE": "Replace sidewalk panels",
+    "CONTACT": null,
+    "OWNER_NAME": null,
+    "PERMIT_ISSUE_DATE": "2026-11-02"
+   }
+  },
+  {
+   "attributes": {
+    "RECORD_ID": "p5",
+    "PERMIT_NUMBER": "CT-5",
+    "PERMIT_TYPE": "Construction and Trades Commercial;Commercial;Commercial/Industrial;Plumbing/Mechanical Work",
+    "PERMIT_NAME": "Automatic Gate w/ Key Switch, Card Reader Installation",
+    "SCOPE": "Water line for the gate house",
+    "CONTACT": "Valley Fire+Security",
+    "OWNER_NAME": null,
+    "PERMIT_ISSUE_DATE": "2026-10-01"
+   }
+  },
+  {
+   "attributes": {
+    "RECORD_ID": "p6",
+    "PERMIT_NUMBER": "CT-6",
+    "PERMIT_TYPE": "Construction and Trades Commercial;Commercial;Commercial/Industrial;Plumbing/Mechanical Work",
+    "PERMIT_NAME": "Modernize eq 1628",
+    "SCOPE": "Backflow device replacement",
+    "CONTACT": "Valley Fire+Security",
+    "OWNER_NAME": null,
+    "PERMIT_ISSUE_DATE": "2026-11-15"
+   }
+  },
+  {
+   "attributes": {
+    "RECORD_ID": "p7",
+    "PERMIT_NUMBER": "CT-7",
+    "PERMIT_TYPE": "Construction and Trades Commercial;Commercial;Commercial/Industrial;Fence and / or Retaining Wall",
+    "PERMIT_NAME": "Perimeter Wall",
+    "SCOPE": "New fence",
+    "CONTACT": null,
+    "OWNER_NAME": "Yard Holdings LLC",
+    "PERMIT_ISSUE_DATE": "2026-11-03"
+   }
+  }
+ ]
+}

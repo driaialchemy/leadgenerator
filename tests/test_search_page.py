@@ -20,7 +20,7 @@ def test_example_runs_once_and_the_kill_switch_disables_search(monkeypatch, tmp_
     at.button(key="example_0").click().run(timeout=60)
     assert list(at.exception) == []
     text = _text(at)
-    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in text
+    assert "7 businesses found · 3 with a named contact · showing 6 · 1 held back" in text
     assert "Stale record" in text
     assert "Named contact" in text
     sources = _count(tmp_path, "source_call")

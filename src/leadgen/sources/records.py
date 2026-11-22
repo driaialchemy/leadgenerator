@@ -4,7 +4,7 @@ import re
 from datetime import date
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SOURCE_LABELS = {
     "sam": "SAM.gov",
@@ -44,6 +44,10 @@ class PublicRecord(BaseModel):
     recent_filing: bool = False
     recent_permit: bool = False
     employee_count: int | None = None
+    owner: str = ""
+    site_name: str = ""
+    permit_count: int = 0
+    plumbing_tie: str = ""
 
 
 class SourceQuery(BaseModel):
@@ -81,6 +85,30 @@ class SearchFilter(BaseModel):
     unsupported: list[str] = Field(default_factory=list)
     sizes: list[str] = Field(default_factory=list)
     known_size_only: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _tidy_model_output(cls, data):
+        """A model may send null for an empty text value, or one string where a list belongs."""
+        if not isinstance(data, dict):
+            return data
+        tidy = {}
+        for key, value in data.items():
+            field = cls.model_fields.get(key)
+            if field is None:
+                tidy[key] = value
+            elif field.annotation is str and value is None:
+                tidy[key] = ""
+            elif field.annotation == list[str]:
+                if value is None or value == "":
+                    tidy[key] = []
+                elif isinstance(value, str):
+                    tidy[key] = [value]
+                else:
+                    tidy[key] = value
+            else:
+                tidy[key] = value
+        return tidy
 
 
 class SuppressionEntry(BaseModel):

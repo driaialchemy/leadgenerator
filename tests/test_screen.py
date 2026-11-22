@@ -61,11 +61,11 @@ def test_search_box_persists_across_rerun_and_tabs(monkeypatch, tmp_path):
     assert at.text_input(key="search_query").value == "Registered firms in Phoenix"
     at.button(key="search").click().run(timeout=60)
     _ok(at)
-    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in _text(at)
+    assert "7 businesses found · 3 with a named contact · showing 6 · 1 held back" in _text(at)
     at.run(timeout=60)
     _switch(at, "shortlist", "search")
     assert at.text_input(key="search_query").value == "Registered firms in Phoenix"
-    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in _text(at)
+    assert "7 businesses found · 3 with a named contact · showing 6 · 1 held back" in _text(at)
 
 
 def test_example_fills_the_box_and_returns_results(monkeypatch, tmp_path):
@@ -75,7 +75,7 @@ def test_example_fills_the_box_and_returns_results(monkeypatch, tmp_path):
     _ok(at)
     assert at.text_input(key="search_query").value == example
     assert example == "Restaurants in Phoenix"
-    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in _text(at)
+    assert "7 businesses found · 3 with a named contact · showing 6 · 1 held back" in _text(at)
     assert "Named contact" in _text(at)
 
 
@@ -101,7 +101,7 @@ def test_update_results_uses_the_edited_fields(monkeypatch, tmp_path):
     at.button(key="example_0").click().run(timeout=60)
     _set_field(at, "field_contact", "Named contact")
     text = _text(at)
-    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in text
+    assert "7 businesses found · 3 with a named contact · showing 3 · 1 held back" in text
     assert "Northwind Example LLC" in text
     assert "Old Registration LLC" in text
     assert "Quiet Mail LLC" not in text
@@ -109,7 +109,7 @@ def test_update_results_uses_the_edited_fields(monkeypatch, tmp_path):
     at.button(key="example_0").click().run(timeout=60)
     _set_field(at, "field_max", "1")
     text = _text(at)
-    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in text
+    assert "7 businesses found · 3 with a named contact · showing 1 · 1 held back" in text
     present = [name for name in SHOWN if name in text]
     assert present == ["Northwind Example LLC"]
 

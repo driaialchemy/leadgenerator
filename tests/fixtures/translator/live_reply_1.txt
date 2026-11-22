@@ -1,0 +1,1 @@
+{ "sources": [ "sam" ], "naics": "721110", "state": "AZ", "city": "Tucson", "business_type": null, "permit_type": null, "date_from": null, "date_to": null, "area": null, "sizes": [], "unsupported": [] }

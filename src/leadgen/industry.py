@@ -118,7 +118,7 @@ def keep_record(record, band_ids: list[str], known_only: bool) -> bool:
 
 
 def size_line(records, band_ids: list[str]) -> str:
-    if not band_ids:
+    if not band_ids or not any(record.employee_count is not None for record in records):
         return ""
     chosen = set(band_ids)
     parts = []

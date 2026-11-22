@@ -9,13 +9,13 @@ ENDPOINT = (
     "https://mapdata.tucsonaz.gov/arcgis/rest/services/PublicMaps/"
     "PermitsCode/MapServer/81/query"
 )
-OUT_FIELDS = "NUMBER,ADDRESS,CITY,STATUS,TYPE,ISSUEDATE,PROJECTNAME,DESCRIPTION,VALUE"
+OUT_FIELDS = "NUMBER,ADDRESS,CITY,STATUS,TYPE,WORKCLASS,ISSUEDATE,PROJECTNAME,DESCRIPTION,VALUE"
 PAGE_SIZE = 2000
 
 
 def tucson_params(query: SourceQuery, cap: int, offset: int = 0) -> list[tuple[str, str]]:
     """Fixed where-clause pieces. Typed search text never reaches this list."""
-    clauses = ["1=1"]
+    clauses = ["PROJECTNAME IS NOT NULL AND PROJECTNAME <> ''"]
     if query.date_from:
         clauses.append(f"ISSUEDATE >= DATE '{_quote(query.date_from)}'")
     if query.date_to:
@@ -60,32 +60,27 @@ def matches_tucson(record: PublicRecord, query: SourceQuery) -> bool:
 
 
 def _feature(attrs: dict) -> PublicRecord:
+    """The layer has no owner or contractor. PROJECTNAME may or may not be a business name."""
     issued = _issued(attrs.get("ISSUEDATE"))
     number = str(attrs.get("NUMBER") or "").strip()
     address = str(attrs.get("ADDRESS") or "").strip()
     project = str(attrs.get("PROJECTNAME") or "").strip()
     description = str(attrs.get("DESCRIPTION") or "").strip()
+    first = " ".join(description.splitlines()[0].split())[:160] if description else ""
     return PublicRecord(
         source="tucson_permits",
         source_record_id=number or address or project,
         source_url=f"{ENDPOINT.rsplit('/', 1)[0]}/{number}" if number else ENDPOINT,
         record_date=issued,
-        business_name=_name(project, address),
+        site_name=project,
         mailing_address=address,
-        city=str(attrs.get("CITY") or "Tucson").strip() or "Tucson",
+        city=str(attrs.get("CITY") or "Tucson").strip().title() or "Tucson",
         state="AZ",
-        project=project or description,
-        permit_type=str(attrs.get("TYPE") or "").strip(),
+        project=first or project,
+        permit_type=str(attrs.get("WORKCLASS") or attrs.get("TYPE") or "").strip(),
         permit_value=str(attrs.get("VALUE") or "").strip(),
         permit_date=issued,
     )
-
-
-def _name(project: str, address: str) -> str:
-    """The layer has no owner or tenant field. A short project name may be a business; a sentence is not."""
-    if project and len(project) <= 40 and "." not in project:
-        return project
-    return address or project
 
 
 def _issued(value) -> date | None:

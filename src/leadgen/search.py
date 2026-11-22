@@ -29,6 +29,7 @@ from leadgen.sources.edgar import (
     parse_submission,
     submissions_url,
 )
+from leadgen.permits import PERMIT_SOURCES, consolidate, count_band, recency_band, refine
 from leadgen.sources.phoenix import ENDPOINT as PHOENIX_ENDPOINT
 from leadgen.sources.phoenix import matches_phoenix, parse_phoenix, phoenix_params
 from leadgen.sources.records import (
@@ -189,11 +190,17 @@ def execute(
             config.sam_page_budget,
         )
         label = SOURCE_LABELS.get(source_id, source_id)
+        permit_stats = None
+        if source_id in PERMIT_SOURCES:
+            found, permit_stats = refine(found, profile.search.permits)
+            permit_stats.total = permit_stats.total or 0
         source_counts[source_id] = len(found)
         records.extend(found)
         if failure:
             statuses.append(failure if failure == SAM_DAILY else f"{label}: {failure}")
             messages.append(failure)
+        elif permit_stats is not None:
+            statuses.append(permit_stats.line(label))
         else:
             noun = "record" if len(found) == 1 else "records"
             statuses.append(f"{label}: {len(found)} {noun}")
@@ -218,6 +225,11 @@ def execute(
                 messages.append(failure)
                 break
             records.extend(found)
+    permit_rows = [record for record in records if record.source in PERMIT_SOURCES]
+    if permit_rows:
+        records = [record for record in records if record.source not in PERMIT_SOURCES] + consolidate(
+            permit_rows
+        )
     merged = dedupe(records)
     markets, market_message = _markets(
         profile, filt, root, hours, use_network, caller
@@ -770,8 +782,20 @@ def _rank(profile, pipeline, records, filt, today) -> list[SearchHit]:
                 prospect,
             )
         )
-    hits.sort(key=lambda hit: (-hit.fit, -hit.score, hit.business_name, hit.prospect_id))
+    hits.sort(
+        key=lambda hit: (
+            -hit.score,
+            -_latest(hit.record).toordinal(),
+            -hit.fit,
+            hit.business_name,
+            hit.prospect_id,
+        )
+    )
     return hits
+
+
+def _latest(record: PublicRecord) -> date:
+    return record.permit_date or record.record_date or date.min
 
 
 def _fit(record: PublicRecord, filt: SearchFilter) -> int:
@@ -822,7 +846,7 @@ def prospect_from_record(profile: Profile, record: PublicRecord, today: date) ->
         consent_status="existing_relationship",
         do_not_contact=False,
         notes=_notes(record),
-        attributes=_record_attributes(profile, record),
+        attributes=_record_attributes(profile, record, today),
         phone=record.phone,
         mailing_address=record.mailing_address,
         contact_title=record.contact_title,
@@ -841,6 +865,8 @@ def _notes(record: PublicRecord) -> str:
         parts.append(f"Phone: {record.phone}.")
     if record.naics:
         parts.append("NAICS: " + ", ".join(record.naics) + ".")
+    if record.permit_count > 1:
+        parts.append(f"{record.permit_count} permits are on record.")
     if record.recent_filing:
         parts.append("A recent public filing is on record.")
     if record.recent_permit:
@@ -1007,7 +1033,7 @@ def _strip_fence(text: str) -> str:
     return stripped
 
 
-def _record_attributes(profile: Profile, record: PublicRecord) -> dict:
+def _record_attributes(profile: Profile, record: PublicRecord, today: date | None = None) -> dict:
     declared = profile.attributes
     cities = {
         city.casefold()
@@ -1021,6 +1047,10 @@ def _record_attributes(profile: Profile, record: PublicRecord) -> dict:
         "named_contact": "yes" if record.contact_name.strip() else "no",
         "recent_permit": "yes" if record.recent_permit else "no",
         "hiring_fit": "yes" if set(record.naics) & set(profile.fit_naics) else "no",
+        "permit_recency": recency_band(record.permit_date, today or date.today(), profile.search.permits),
+        "plumbing_tie": record.plumbing_tie
+        or ("strong" if set(record.naics) & set(profile.fit_naics) else "none"),
+        "permit_count": count_band(record.permit_count, profile.search.permits),
     }
     return {key: value for key, value in values.items() if key in declared}
 
@@ -1037,6 +1067,7 @@ def _fact_lines(record: PublicRecord) -> str:
         f"naics: {', '.join(record.naics)}",
         f"project: {record.project}",
         f"permit_type: {record.permit_type}",
+        f"permit_count: {record.permit_count}",
         f"recent_filing: {record.recent_filing}",
         f"recent_permit: {record.recent_permit}",
     ]

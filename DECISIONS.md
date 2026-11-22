@@ -210,3 +210,25 @@ The look is Acme's own: a top bar, a hero with an original wordmark and water dr
 The bar is a darker cyan, `#0E7490`, because white text on the bright `#06B6D4` fails contrast. The bright cyan is a thin line under the bar. Approved green `#16A34A` and amber `#F59E0B` carry dark text for the same reason. Red is used only for blocked. Hero text is checked against the lightest case: a white photo under the 62 percent overlay.
 
 The hero photo is the owner's own file, git-ignored. Code shrinks it to a web copy under 150 KB and caches it. With no photo the hero is a gradient with a drop, and there is no error. Pillow does the resize. Only `ui_theme.py` and `.streamlit/config.toml` hold colors, and a test checks that.
+
+## 2026-11-21 — Permit rows become businesses (M11.1)
+
+A permit row is not a business. Both city layers were read field by field before any rule was written.
+
+Phoenix layer `ShapePHXPermitsPoints_DL`, layer 0, 16,703 rows. Fields: OBJECTID, PERMIT_NUMBER, PERMIT_TYPE, PROJECT, STATUS, PERMIT_ISSUE_DATE, CONTACT, SCOPE, X, Y, PLANREVIEW, ADDRESS, PERMIT_TYPE_DESC, PERMIT_NAME, GLOBALID, OWNER_NAME, LASTMODIFIEDDATE, APN, RECORD_ID. PERMIT_TYPE is a semicolon path such as `Construction and Trades Commercial;Commercial;Commercial/Industrial;Tenant Improvement`. In the live sample OWNER_NAME and ADDRESS are almost always empty. CONTACT holds a contractor company, and sometimes a person. PERMIT_NAME is a site name or a work description. SCOPE is the work description. PROJECT is a case number.
+
+Tucson layer `PDSD_CommercialBldg`, MapServer layer 81, 5,025 rows. Fields: OBJECTID, ID, MODULE, NUMBER, ADDRESS, UNITORSUITE, CITY, POSTALCODE, PARCEL, STATUS, TYPE, PREFIX, WORKCLASS, CensusCode, StructureType, APPLYDATE, ISSUEDATE, EXPIREDATE, COMPLETEDATE, VALUE, SQUAREFEET, PROJECTNAME, LAT, LON, WARD, DESCRIPTION, CSS_URL, ENGOV_URL, PRO_URL, SOURCE, DATASOURCE, ACTIVE. There is no owner, applicant, or contractor field. PROJECTNAME is filled on 787 rows and is sometimes a business or site, sometimes a description. TYPE is nearly always "Commercial Building", so WORKCLASS is the permit type. The Tucson query asks only for rows with a PROJECTNAME.
+
+Business. The order is in the YAML (`search.permits.business_order`): owner, then a site name that reads as a name, then the contractor company. This puts the customer ahead of the contractor. The spec listed the contractor company first; flip the YAML list to change it. A site name is rejected when it starts with a digit, is an address or an intersection, is more than seven words, or contains a work word such as install, replace, modify, paving, or tie in. Rejected rows with no other name are dropped and counted.
+
+Contact. A permit CONTACT is a named contact only when it is two or three plain words with no company word (Inc, Fire, Construction, and so on). Every row used to say "Named contact" because the old parser copied the contractor company into the contact field.
+
+Relevance. The permit type decides first, then the work description. Sign, fence, gate, fire alarm, sprinkler, kitchen hood, electrical, demolition, and paving are left out. Tenant improvement, plumbing, water heater, backflow, grease, kitchen, and restroom work is strong. A customer type such as a hotel or a care home upgrades a building permit but never rescues a sign or a fire alarm. The left-out count and the dropped count are in each source's status line.
+
+De-duplication. Rows with the same business name (ignoring Inc and LLC) and city become one row with a permit count and the latest permit date.
+
+Scoring, 100 points, all in the YAML: service area 20, named contact 15, latest permit recency 25 (90 days 25, 180 days 18, one year 10, older 3), permit type tied to plumbing 25 (strong 25, some 12), permit count 10 (three or more 10, two 6, one 2), industry on the fit list 5. The new `grade` rule type gives partial points; its `points` is the most it can give. Sort is score, then latest permit date.
+
+The translator failed on live output because the model sent `null` for empty text values and a bare string where a list belongs. `SearchFilter` now accepts both. Two captured replies are in `tests/fixtures/translator/`.
+
+The summary line is plain words. The size breakdown shows only when a size was chosen and some record carries a size. City permits carry none.

@@ -17,7 +17,13 @@ def score(prospect: Prospect, profile: Profile, pipeline: PipelineConfig) -> Sco
     hits: list[RuleHit] = []
     total = 0
     for rule in profile.scoring_rules:
-        matched = _matches(rule, _field_value(prospect, rule.field))
+        value = _field_value(prospect, rule.field)
+        if rule.rule_type == "grade":
+            earned = (rule.grades or {}).get(str(value), 0) if value is not None else 0
+            hits.append(RuleHit(field=rule.field, points=earned, matched=earned > 0))
+            total += earned
+            continue
+        matched = _matches(rule, value)
         hits.append(RuleHit(field=rule.field, points=rule.points, matched=matched))
         if matched:
             total += rule.points
