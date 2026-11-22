@@ -29,6 +29,9 @@ EXPIRED = "The sign-in expired. Reconnect, then try again."
 UNREACHABLE = "The mail service could not be reached. Nothing was sent."
 REJECTED_BY_PROVIDER = "The mail service did not accept this note. Nothing was sent."
 NEEDS_CONFIRMATION = "Send now needs a second confirmation."
+PLACEHOLDER_SEND = (
+    "Add Acme's real sender name, address, and phone in the settings file before sending"
+)
 ALREADY_SENT = "This note was already sent. A new draft is still allowed."
 NOT_CONNECTED = "This account is not connected. Reconnect, then try again."
 MISSING_IDENTITY = "The note is missing the sender identity or the opt-out line."
@@ -161,6 +164,8 @@ def refusal_reason(
         return NOT_APPROVED
     if kind == "practice":
         return ""
+    if verb == "send" and kind in {"gmail", "outlook"} and _placeholder_sender(run_dir):
+        return PLACEHOLDER_SEND
     if not _recipient(run_dir):
         return NO_EMAIL
     rendered = _rendered(run_dir)
@@ -497,8 +502,23 @@ def _identity_ok(run_dir: Path, rendered: str) -> bool:
     except (OSError, json.JSONDecodeError, ValueError):
         return False
     sender = profile.sender
-    required = (sender.name, sender.company, sender.postal_address, profile.opt_out_line)
+    required = [sender.name, sender.company, sender.postal_address, profile.opt_out_line]
+    if sender.phone.strip():
+        required.append(sender.phone)
     return all(part and part in rendered for part in required)
+
+
+def _placeholder_sender(run_dir: Path) -> bool:
+    status_path = Path(run_dir) / "status.json"
+    if not status_path.is_file():
+        return False
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        profile = load_profile(str(status.get("profile_id") or ""))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return False
+    marked = set(profile.sender.placeholder_fields)
+    return bool(marked & {"name", "postal_address", "phone"})
 
 
 def _split(rendered: str) -> tuple[str, str]:

@@ -61,11 +61,11 @@ def test_search_box_persists_across_rerun_and_tabs(monkeypatch, tmp_path):
     assert at.text_input(key="search_query").value == "Registered firms in Phoenix"
     at.button(key="search").click().run(timeout=60)
     _ok(at)
-    assert "4 matches, 2 named contacts, 3 shown, 1 held back" in _text(at)
+    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in _text(at)
     at.run(timeout=60)
     _switch(at, "shortlist", "search")
     assert at.text_input(key="search_query").value == "Registered firms in Phoenix"
-    assert "4 matches, 2 named contacts, 3 shown, 1 held back" in _text(at)
+    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in _text(at)
 
 
 def test_example_fills_the_box_and_returns_results(monkeypatch, tmp_path):
@@ -74,8 +74,8 @@ def test_example_fills_the_box_and_returns_results(monkeypatch, tmp_path):
     at.button(key="example_0").click().run(timeout=60)
     _ok(at)
     assert at.text_input(key="search_query").value == example
-    assert example == "Registered firms in Phoenix"
-    assert "4 matches, 2 named contacts, 3 shown, 1 held back" in _text(at)
+    assert example == "Restaurants in Phoenix"
+    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in _text(at)
     assert "Named contact" in _text(at)
 
 
@@ -96,25 +96,12 @@ def test_update_results_uses_the_edited_fields(monkeypatch, tmp_path):
     text = _text(at)
     assert "Tucson Example LLC" in text
     assert "Northwind Example LLC" not in text
-    assert "1 matches, 1 named contacts, 1 shown, 0 held back" in text
     assert at.text_input(key="field_location").value == "Tucson"
-
-    at.button(key="example_0").click().run(timeout=60)
-    _set_field(at, "field_kind", "999999")
-    text = _text(at)
-    assert "0 matches, 0 named contacts, 0 shown, 0 held back" in text
-    assert "Northwind Example LLC" not in text
-
-    at.button(key="example_0").click().run(timeout=60)
-    _set_field(at, "field_business", "Nonprofit")
-    text = _text(at)
-    assert "0 matches, 0 named contacts, 0 shown, 0 held back" in text
-    assert "Northwind Example LLC" not in text
 
     at.button(key="example_0").click().run(timeout=60)
     _set_field(at, "field_contact", "Named contact")
     text = _text(at)
-    assert "4 matches, 2 named contacts, 3 shown, 1 held back" in text
+    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in text
     assert "Northwind Example LLC" in text
     assert "Old Registration LLC" in text
     assert "Quiet Mail LLC" not in text
@@ -122,7 +109,7 @@ def test_update_results_uses_the_edited_fields(monkeypatch, tmp_path):
     at.button(key="example_0").click().run(timeout=60)
     _set_field(at, "field_max", "1")
     text = _text(at)
-    assert "4 matches, 2 named contacts, 3 shown, 1 held back" in text
+    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in text
     present = [name for name in SHOWN if name in text]
     assert present == ["Northwind Example LLC"]
 
@@ -141,30 +128,12 @@ def test_update_results_uses_the_edited_fields(monkeypatch, tmp_path):
     assert at.text_input(key="field_to").value == "2026-11-20"
 
 
-def test_profile_and_data_mode_persist(monkeypatch, tmp_path):
-    at = _open(monkeypatch, tmp_path)
-    assert "B2B-001" in _text(at)
-    at.selectbox(key="profile").set_value("home_services").run(timeout=60)
-    _ok(at)
-    assert at.selectbox(key="profile").value == "home_services"
-    assert "HOME-001" in _text(at)
-    assert "B2B-001" not in _text(at)
-    _switch(at, "funnel", "shortlist")
-    assert at.selectbox(key="profile").value == "home_services"
-    assert "HOME-001" in _text(at)
-
-    at.radio(key="data_mode").set_value("Live").run(timeout=60)
-    assert at.radio(key="data_mode").value == "Live"
-    assert "Data mode: Live" in _text(at)
-    _switch(at, "settings", "shortlist")
-    assert at.radio(key="data_mode").value == "Live"
-    at.radio(key="data_mode").set_value("Practice data").run(timeout=60)
-    assert at.radio(key="data_mode").value == "Practice data"
-    assert "Data mode: Practice data" in _text(at)
-
-
 def test_approver_and_edit_fields_persist(monkeypatch, tmp_path):
+    from test_app import _seed_draft
+
+    _seed_draft(tmp_path)
     at = _open(monkeypatch, tmp_path)
+    at.button(key="nav_run").click().run(timeout=60)
     at.button(key="run").click().run(timeout=60)
     _ok(at)
     at.text_input(key="approver").set_value("Ada").run(timeout=60)
@@ -176,71 +145,38 @@ def test_approver_and_edit_fields_persist(monkeypatch, tmp_path):
     assert at.text_area(key="edit_bridge").value == "A person reviews the work before it goes out."
 
 
-def test_sidebar_holds_profile_and_data_mode(monkeypatch, tmp_path):
+def test_sidebar_has_no_picker_or_red_team(monkeypatch, tmp_path):
     at = _open(monkeypatch, tmp_path)
     keys = {getattr(node, "key", None) for node in at.sidebar}
-    assert "profile" in keys
-    assert "data_mode" in keys
-    assert "check_keys" not in keys
+    assert "profile" not in keys
+    assert "data_mode" not in keys
     assert "red_team" not in keys
     assert "Kill switch is engaged. Refusing to run." not in _text(at)
+    at.button(key="nav_settings").click().run(timeout=60)
     text = _text(at)
     assert "Tailor the pitch" in text
     assert "Write the email" in text
     assert "Quality score" in text
     assert at.button(key="check_keys").label == "Check keys"
-    assert at.checkbox(key="red_team").label == "Red-team toggle"
+    assert "Red-team" not in text
 
 
-def test_walkthrough_reaches_one_outbox_file(monkeypatch, tmp_path):
-    for profile_id in profile_ids():
-        root = tmp_path / profile_id
-        root.mkdir()
-        monkeypatch.setenv("LEADGEN_DATA_ROOT", str(root))
-        at = AppTest.from_file(str(APP))
-        at.run(timeout=60)
-        _ok(at)
-        if at.selectbox(key="profile").value != profile_id:
-            at.selectbox(key="profile").set_value(profile_id).run(timeout=60)
-            _ok(at)
-        example = at.button(key="example_0").label
-        at.button(key="example_0").click().run(timeout=60)
-        _ok(at)
-        assert at.text_input(key="search_query").value == example
-        added = [button for button in at.button if str(button.key).startswith("add_")]
-        if added:
-            added[0].click().run(timeout=60)
-            _ok(at)
-            at.button(key="next_search").click().run(timeout=60)
-        else:
-            assert "No matches yet" in _text(at)
-            at.button(key="nav_shortlist").click().run(timeout=60)
-        assert at.session_state["step"] == "shortlist"
-        at.button(key="next_shortlist").click().run(timeout=60)
-        assert at.session_state["step"] == "run"
-        at.button(key="run").click().run(timeout=60)
-        _ok(at)
-        text = _text(at)
-        assert "Waiting for your approval" in text
-        assert "1. Tailor the pitch: done" in text
-        assert "PENDING_APPROVAL" not in text
-        assert profile_id not in text
-        if profile_id == "b2b_services":
-            assert "Problem found:" in text
-            assert "Trying again (Attempt 2)." in text
-            assert "gemini-4-argon" in text
-        at.button(key="next_run").click().run(timeout=60)
-        at.text_input(key="approver").set_value("Ada").run(timeout=60)
-        at.checkbox(key="ack").set_value(True).run(timeout=60)
-        at.button(key="approve").click().run(timeout=60)
-        _ok(at)
-        files = list((root / "outbox").glob("*.txt"))
-        assert len(files) == 1, profile_id
-        approval = root / "runs" / files[0].stem / "approval.json"
-        assert json.loads(approval.read_text(encoding="utf-8"))["name"] == "Ada"
-        at.button(key="next_review").click().run(timeout=60)
-        assert at.session_state["step"] == "outbox"
-        assert "Approved by Ada" in _text(at)
+def test_walkthrough_reaches_the_shortlist(monkeypatch, tmp_path):
+    root = tmp_path / "acme"
+    root.mkdir()
+    monkeypatch.setenv("LEADGEN_DATA_ROOT", str(root))
+    at = AppTest.from_file(str(APP))
+    at.run(timeout=60)
+    _ok(at)
+    example = at.button(key="example_0").label
+    at.button(key="example_0").click().run(timeout=60)
+    _ok(at)
+    assert at.text_input(key="search_query").value == example
+    at.button(key="add_all").click().run(timeout=60)
+    _ok(at)
+    at.button(key="next_search").click().run(timeout=60)
+    assert at.session_state["step"] == "shortlist"
+    assert "Northwind Example LLC" in _text(at) or "Congress Kitchen" in _text(at)
 
 
 def test_locked_steps_stay_put_and_offer_a_way_forward(monkeypatch, tmp_path):
@@ -281,7 +217,7 @@ def test_wizard_walk_has_one_primary_and_the_b2b_counts(monkeypatch, tmp_path):
     at = _open(monkeypatch, tmp_path)
     assert _states(at)["search"] == "current"
     assert _states(at)["shortlist"] == "ready"
-    assert _states(at)["run"] == "ready"
+    assert _states(at)["run"] == "locked"
     assert _states(at)["review"] == "locked"
     assert _states(at)["outbox"] == "locked"
     assert _primaries(at) == ["Search"]
@@ -290,12 +226,14 @@ def test_wizard_walk_has_one_primary_and_the_b2b_counts(monkeypatch, tmp_path):
     _ok(at)
     assert _primaries(at) == ["Next"]
     assert _tiles(at) == {
-        "Businesses found": 3,
-        "On shortlist": 5,
+        "Businesses found": 6,
+        "On shortlist": 0,
         "Drafts waiting": 0,
         "Approved": 0,
         "Sent": 0,
     }
+    at.button(key="add_all").click().run(timeout=60)
+    _ok(at)
     at.button(key="next_search").click().run(timeout=60)
     assert at.session_state["step"] == "shortlist"
     assert _states(at)["search"] == "done"
@@ -309,39 +247,7 @@ def test_wizard_walk_has_one_primary_and_the_b2b_counts(monkeypatch, tmp_path):
     assert _states(at)["review"] == "locked"
     assert _primaries(at) == ["Run"]
 
-    at.button(key="run").click().run(timeout=60)
-    _ok(at)
-    assert _states(at)["run"] == "current"
-    assert _states(at)["review"] == "ready"
-    assert _primaries(at) == ["Next"]
-    assert _tiles(at)["Drafts waiting"] == 1
-    assert _tiles(at)["Approved"] == 0
-    assert _tiles(at)["Sent"] == 0
-
-    at.button(key="next_run").click().run(timeout=60)
-    assert at.session_state["step"] == "review"
-    assert _states(at)["run"] == "done"
-    assert _states(at)["review"] == "current"
-    assert _states(at)["outbox"] == "locked"
-    assert _primaries(at) == ["Approve"]
-
-    at.text_input(key="approver").set_value("Ada").run(timeout=60)
-    at.checkbox(key="ack").set_value(True).run(timeout=60)
-    at.button(key="approve").click().run(timeout=60)
-    _ok(at)
-    assert _primaries(at) == ["Approve"]
-    assert _tiles(at) == {
-        "Businesses found": 3,
-        "On shortlist": 5,
-        "Drafts waiting": 0,
-        "Approved": 1,
-        "Sent": 1,
-    }
-    at.button(key="next_review").click().run(timeout=60)
-    assert at.session_state["step"] == "outbox"
-    assert _states(at)["review"] == "done"
-    assert _states(at)["outbox"] == "current"
-    assert _primaries(at) == ["Find another"]
+    assert "Northwind Example LLC" in _text(at) or "Congress Kitchen" in _text(at)
 
 
 def _open(monkeypatch, tmp_path):

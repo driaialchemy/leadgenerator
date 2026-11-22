@@ -10,6 +10,7 @@ SOURCE_LABELS = {
     "sam": "SAM.gov",
     "edgar": "SEC EDGAR",
     "phoenix_permits": "Phoenix permits",
+    "tucson_permits": "Tucson permits",
     "census_cbp": "County Business Patterns",
 }
 
@@ -53,6 +54,7 @@ class SourceQuery(BaseModel):
     naics: list[str] = Field(default_factory=list)
     state: str = ""
     city: str = ""
+    cities: list[str] = Field(default_factory=list)
     business_type: str = ""
     legal_name: str = ""
     permit_type: str = ""
@@ -70,6 +72,7 @@ class SearchFilter(BaseModel):
     naics: list[str] = Field(default_factory=list)
     state: str = ""
     city: str = ""
+    cities: list[str] = Field(default_factory=list)
     business_type: str = ""
     permit_type: str = ""
     date_from: str = ""

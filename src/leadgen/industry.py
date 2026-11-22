@@ -245,11 +245,28 @@ def _score(query: str, query_words: list[str], phrase: str) -> float:
         return 0.96
     if all(word in phrase_words for word in query_words):
         return 0.9
+    word_score = _word_score(query_words, phrase_words)
+    if word_score >= CUTOFF:
+        return word_score
     ratio = SequenceMatcher(None, query, phrase).ratio()
     ordered = SequenceMatcher(
         None, " ".join(sorted(query_words)), " ".join(sorted(phrase_words))
     ).ratio()
     return max(ratio, ordered)
+
+
+def _word_score(query_words: list[str], phrase_words: list[str]) -> float:
+    """A query word that sits inside a title word is a match."""
+    best = 0.0
+    for word in query_words:
+        if len(word) < 4:
+            continue
+        for phrase_word in phrase_words:
+            if word in phrase_word or phrase_word in word:
+                best = max(best, 0.9)
+            else:
+                best = max(best, SequenceMatcher(None, word, phrase_word).ratio())
+    return best
 
 
 def _words(text: str) -> list[str]:

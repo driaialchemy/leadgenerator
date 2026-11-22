@@ -9,14 +9,15 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from leadgen.industry import apply_choices, keep_record, size_line
+from leadgen.industry import keep_record, size_line
+from leadgen.json_text import parse_model_json
 from leadgen.kill_switch import assert_not_engaged
-from leadgen.llm import complete, scrub
+from leadgen.llm import ProviderError, complete, scrub
 from leadgen.messages import reason_prompt, translator_prompt
 from leadgen.paths import repo_root
 from leadgen.pipeline import _log
 from leadgen.profiles import load_pipeline_config
-from leadgen.schemas import PipelineConfig, Profile, Prospect
+from leadgen.schemas import CountyConfig, PipelineConfig, Profile, Prospect
 from leadgen.scoring import score
 from leadgen.sources.cache import cache_file, read_cache, write_cache
 from leadgen.sources.census_cbp import ENDPOINT as CENSUS_ENDPOINT
@@ -31,6 +32,7 @@ from leadgen.sources.edgar import (
 from leadgen.sources.phoenix import ENDPOINT as PHOENIX_ENDPOINT
 from leadgen.sources.phoenix import matches_phoenix, parse_phoenix, phoenix_params
 from leadgen.sources.records import (
+    SOURCE_LABELS,
     PublicRecord,
     SearchFilter,
     SourceQuery,
@@ -46,6 +48,9 @@ from leadgen.sources.records import (
 from leadgen.sources.sam import ENDPOINT as SAM_ENDPOINT
 from leadgen.sources.sam import matches_sam, parse_sam, sam_params
 from leadgen.sources.transport import TIMEOUT_SECONDS, SourceFailure, fetch
+from leadgen.sources.tucson import ENDPOINT as TUCSON_ENDPOINT
+from leadgen.sources.tucson import PAGE_SIZE as TUCSON_PAGE
+from leadgen.sources.tucson import matches_tucson, parse_tucson, tucson_params
 from leadgen.reasons import reason_is_grounded
 
 
@@ -76,6 +81,8 @@ class SearchOutcome:
         filt,
         market=None,
         size_line="",
+        statuses=None,
+        markets=None,
     ):
         self.hits = hits
         self.total_matches = total_matches
@@ -87,6 +94,8 @@ class SearchOutcome:
         self.filter = filt
         self.market = market
         self.size_line = size_line
+        self.statuses = list(statuses or [])
+        self.markets = list(markets or [])
 
 
 def search(
@@ -101,16 +110,28 @@ def search(
     chosen_naics: list[str] | None = None,
     chosen_sizes: list[str] | None = None,
     known_size_only: bool = False,
+    chosen_cities: list[str] | None = None,
 ) -> SearchOutcome:
-    """Rank public records for one request. A failed source does not stop the others."""
+    """Rank public records. On-screen fields run the search. Free text may add a filter."""
     folder = Path(root) if root is not None else repo_root()
     assert_not_engaged(folder)
     _log(folder, "search", "search", "search", "ok", scrub(request)[:240] or "search")
-    try:
-        filt, unsupported = translate(profile, request, folder)
-    except (ValueError, json.JSONDecodeError, ValidationError):
-        filt, unsupported = SearchFilter(), ["the request"]
-    filt, notes = apply_choices(filt, profile, chosen_naics, chosen_sizes, known_size_only)
+    filt = screen_filter(profile, chosen_naics, chosen_sizes, chosen_cities, known_size_only)
+    unsupported: list[str] = []
+    notes: list[str] = []
+    if request.strip():
+        try:
+            translated, unsupported = translate(profile, request, folder)
+        except (ValueError, json.JSONDecodeError, ValidationError, ProviderError, FileNotFoundError, OSError):
+            notes.append("The request could not be read. The search used the fields on screen.")
+        else:
+            updates = {}
+            if not filt.naics and translated.naics:
+                updates["naics"] = translated.naics
+            if not filt.sizes and translated.sizes:
+                updates["sizes"] = translated.sizes
+            if updates:
+                filt = filt.model_copy(update=updates)
     return execute(
         profile,
         filt,
@@ -150,19 +171,32 @@ def execute(
     messages: list[str] = list(notes or [])
     records: list[PublicRecord] = []
     source_counts: dict[str, int] = {}
+    statuses: list[str] = []
     query = _query(filt)
     for source_id in filt.sources:
         spec = specs.get(source_id)
         if spec is None or spec.role != "search":
             continue
         found, failure = _search_source(
-            source_id, query, root, cap, hours, use_network, caller, day
+            source_id,
+            query,
+            root,
+            cap,
+            hours,
+            use_network,
+            caller,
+            day,
+            config.sam_page_budget,
         )
-        if failure is not None:
-            messages.append(failure)
-            continue
-        source_counts[source_id] = source_counts.get(source_id, 0) + len(found)
+        label = SOURCE_LABELS.get(source_id, source_id)
+        source_counts[source_id] = len(found)
         records.extend(found)
+        if failure:
+            statuses.append(failure if failure == SAM_DAILY else f"{label}: {failure}")
+            messages.append(failure)
+        else:
+            noun = "record" if len(found) == 1 else "records"
+            statuses.append(f"{label}: {len(found)} {noun}")
     if any(spec.role == "lookup" and spec.id in filt.sources for spec in profile.search.sources):
         names = []
         for record in records:
@@ -185,15 +219,10 @@ def execute(
                 break
             records.extend(found)
     merged = dedupe(records)
-    market, market_message = load_market(
-        profile.search.county,
-        filt.naics,
-        filt.sizes,
-        root,
-        hours,
-        use_network,
-        caller,
+    markets, market_message = _markets(
+        profile, filt, root, hours, use_network, caller
     )
+    market = markets[0] if markets else None
     if market_message:
         messages.append(market_message)
     if filt.naics:
@@ -218,6 +247,10 @@ def execute(
         )
         if failure is not None:
             messages.append(failure)
+    if filt.naics and {"phoenix_permits", "tucson_permits"} & set(filt.sources):
+        messages.append(
+            "City permit records do not list an industry, so the industry you picked does not narrow them."
+        )
     marked = [_mark(record, windows, day) for record in merged]
     kept, held_back = split_suppression(marked, load_suppression())
     sized = [record for record in kept if keep_record(record, filt.sizes, filt.known_size_only)]
@@ -250,6 +283,8 @@ def execute(
         filt=filt,
         market=market,
         size_line=size_line(sized, filt.sizes),
+        statuses=statuses,
+        markets=markets,
     )
 
 
@@ -265,7 +300,50 @@ def translate(profile: Profile, request: str, root: Path) -> tuple[SearchFilter,
 
 
 def parse_filter(text: str) -> SearchFilter:
-    return SearchFilter.model_validate(json.loads(_strip_fence(text)))
+    return parse_model_json(text, SearchFilter)
+
+
+def screen_filter(
+    profile: Profile,
+    naics: list[str] | None,
+    sizes: list[str] | None,
+    cities: list[str] | None,
+    known_size_only: bool,
+) -> SearchFilter:
+    """The on-screen fields. Sources always come from the settings file."""
+    from leadgen.industry import BAND_IDS, catalog_codes
+
+    catalog = catalog_codes()
+    codes = []
+    for code in naics or []:
+        if code in catalog and code not in codes:
+            codes.append(code)
+    bands = []
+    for band in sizes or []:
+        if band in BAND_IDS and band not in bands:
+            bands.append(band)
+    allowed = {city.casefold(): city for city in profile.search.cities}
+    chosen = []
+    for city in cities if cities is not None else profile.search.cities:
+        match = allowed.get(str(city).casefold())
+        if match and match not in chosen:
+            chosen.append(match)
+    if not chosen:
+        chosen = list(profile.search.cities)
+    return SearchFilter(
+        sources=[spec.id for spec in profile.search.sources],
+        naics=codes,
+        state=profile.search.states[0] if profile.search.states else "",
+        cities=chosen,
+        sizes=bands,
+        known_size_only=known_size_only,
+        permit_type=profile.search.permit_types[0] if profile.search.permit_types else "",
+    )
+
+
+SAM_DAILY = "SAM.gov daily limit reached; results resume tomorrow"
+SAM_PAGE_SIZE = 10
+PHOENIX_PAGE = 1000
 
 
 def restrict(filt: SearchFilter, profile: Profile) -> tuple[SearchFilter, list[str]]:
@@ -339,15 +417,85 @@ def remember_add(root: Path, prospect: Prospect) -> None:
     )
 
 
-def _search_source(source_id, query, root, cap, hours, network, transport, today):
+def _search_source(source_id, query, root, cap, hours, network, transport, today, sam_budget=5):
     if source_id == "sam":
-        if not query.legal_name and not (query.naics or query.state or query.city or query.business_type):
+        if not query.legal_name and not (
+            query.naics or query.state or query.city or query.cities or query.business_type
+        ):
             return [], "SAM.gov needs a NAICS code, state, city, or business type."
+        if query.legal_name:
+            return _sam_once(query, root, cap, hours, network, transport)
+        return _sam_pages(query, root, cap, hours, network, transport, sam_budget)
+    if source_id == "phoenix_permits":
+        if not (query.permit_type or query.area or query.date_from or query.date_to):
+            return [], "Phoenix permits needs a permit type, date range, or area."
+        return _arc_pages(
+            "phoenix_permits",
+            PHOENIX_ENDPOINT,
+            phoenix_params,
+            parse_phoenix,
+            matches_phoenix,
+            "phoenix/permits.json",
+            PHOENIX_PAGE,
+            query,
+            root,
+            cap,
+            hours,
+            network,
+            transport,
+        )
+    if source_id == "tucson_permits":
+        return _arc_pages(
+            "tucson_permits",
+            TUCSON_ENDPOINT,
+            tucson_params,
+            parse_tucson,
+            matches_tucson,
+            "tucson/permits.json",
+            TUCSON_PAGE,
+            query,
+            root,
+            cap,
+            hours,
+            network,
+            transport,
+        )
+    return [], None
+
+
+def _sam_once(query, root, cap, hours, network, transport):
+    try:
+        records = _cached_call(
+            "sam",
+            SAM_ENDPOINT,
+            sam_params(query, cap),
+            _sam_headers(),
+            parse_sam,
+            "sam/entities.json",
+            root,
+            cap,
+            hours,
+            network,
+            transport,
+            _sam_key(network),
+        )
+    except SourceFailure as exc:
+        if exc.kind == "rate":
+            return [], SAM_DAILY
+        return [], exc.text
+    return [record for record in records if matches_sam(record, query)], None
+
+
+def _sam_pages(query, root, cap, hours, network, transport, budget):
+    """One Arizona query, then keep the metro cities. Stop at the page budget."""
+    kept = []
+    pages = max(1, budget)
+    for page in range(pages):
         try:
             records = _cached_call(
                 "sam",
                 SAM_ENDPOINT,
-                sam_params(query, cap),
+                sam_params(query, SAM_PAGE_SIZE, page),
                 _sam_headers(),
                 parse_sam,
                 "sam/entities.json",
@@ -359,19 +507,30 @@ def _search_source(source_id, query, root, cap, hours, network, transport, today
                 _sam_key(network),
             )
         except SourceFailure as exc:
+            if exc.kind == "rate":
+                return kept[:cap], SAM_DAILY
+            if kept:
+                return kept[:cap], exc.text
             return [], exc.text
-        return [record for record in records if matches_sam(record, query)], None
-    if source_id == "phoenix_permits":
-        if not (query.permit_type or query.area or query.date_from or query.date_to):
-            return [], "Phoenix permits needs a permit type, date range, or area."
+        kept.extend(record for record in records if matches_sam(record, query))
+        if len(records) < SAM_PAGE_SIZE or len(kept) >= cap:
+            break
+    return kept[:cap], None
+
+
+def _arc_pages(source_id, endpoint, params_fn, parse, match, fixture, page_size, query, root, cap, hours, network, transport):
+    kept = []
+    offset = 0
+    while len(kept) < cap:
+        count = min(page_size, cap - len(kept))
         try:
             records = _cached_call(
-                "phoenix_permits",
-                PHOENIX_ENDPOINT,
-                phoenix_params(query, cap),
+                source_id,
+                endpoint,
+                params_fn(query, count, offset),
                 {"Accept": "application/json"},
-                parse_phoenix,
-                "phoenix/permits.json",
+                parse,
+                fixture,
                 root,
                 cap,
                 hours,
@@ -380,9 +539,43 @@ def _search_source(source_id, query, root, cap, hours, network, transport, today
                 "",
             )
         except SourceFailure as exc:
+            if kept:
+                return kept[:cap], exc.text
             return [], exc.text
-        return [record for record in records if matches_phoenix(record, query)], None
-    return [], None
+        kept.extend(record for record in records if match(record, query))
+        if len(records) < count:
+            break
+        offset += count
+    return kept[:cap], None
+
+
+def _markets(profile, filt, root, hours, network, transport):
+    selected = {city.casefold() for city in filt.cities}
+    metros = list(profile.search.metros)
+    reports = []
+    message = ""
+    if not metros:
+        report, message = load_market(
+            profile.search.county, filt.naics, filt.sizes, root, hours, network, transport
+        )
+        return ([report] if report else []), message
+    for metro in metros:
+        if selected and not any(city.casefold() in selected for city in metro.cities):
+            continue
+        county = CountyConfig(
+            name=metro.county_name,
+            state=metro.state,
+            state_fips=metro.state_fips,
+            county_fips=metro.county_fips,
+        )
+        report, failure = load_market(
+            county, filt.naics, filt.sizes, root, hours, network, transport
+        )
+        if report:
+            reports.append(report)
+        elif failure and not message:
+            message = failure
+    return reports, message
 
 
 def _enrich_edgar(records, root, hours, network, transport, today, freshness):
@@ -482,7 +675,7 @@ def _cached_body(source, endpoint, params, headers, root, hours, transport, fixt
         _source_log(root, source, endpoint, "fail", 0, _millis(started), False)
         raise SourceFailure(source, "down") from None
     elapsed = _millis(started)
-    if status == 429:
+    if status == 429 or (source == "sam" and _sam_limited(body)):
         _source_log(root, source, endpoint, "fail", 0, elapsed, False)
         raise SourceFailure(source, "rate")
     if status != 200:
@@ -497,6 +690,13 @@ def _cached_body(source, endpoint, params, headers, root, hours, transport, fixt
     write_cache(path, clean)
     _source_log(root, source, endpoint, "ok", count, elapsed, False)
     return clean
+
+
+def _sam_limited(body: str) -> bool:
+    if "entityData" in body:
+        return False
+    text = body.casefold()
+    return "daily" in text or "throttl" in text or "rate limit" in text
 
 
 def _count_body(source: str, body: str) -> int:
@@ -544,7 +744,8 @@ def _edgar_headers(network: bool) -> dict[str, str]:
 def _mark(record: PublicRecord, windows: dict[str, int], today: date) -> PublicRecord:
     data = record.model_dump()
     data["recent_permit"] = bool(
-        record.recent_permit or within_window(record.permit_date, windows.get("phoenix_permits", 0), today)
+        record.recent_permit
+        or within_window(record.permit_date, windows.get(record.source, 0), today)
     )
     data["recent_filing"] = bool(
         record.recent_filing or within_window(record.filing_date, windows.get("edgar", 0), today)
@@ -579,7 +780,10 @@ def _fit(record: PublicRecord, filt: SearchFilter) -> int:
         total += 1
     if filt.state and record.state.casefold() == filt.state.casefold():
         total += 1
-    if filt.city and record.city.casefold() == filt.city.casefold():
+    wanted = {city.casefold() for city in filt.cities}
+    if wanted and record.city.casefold() in wanted:
+        total += 1
+    elif filt.city and record.city.casefold() == filt.city.casefold():
         total += 1
     if filt.business_type and any(
         item.casefold() == filt.business_type.casefold() for item in record.business_types
@@ -601,7 +805,11 @@ def prospect_from_record(profile: Profile, record: PublicRecord, today: date) ->
         engaged = 9999
     else:
         engaged = max(0, (today - record.record_date).days)
-    source = record.source if record.source in {"sam", "edgar", "phoenix_permits"} else "sam"
+    source = (
+        record.source
+        if record.source in {"sam", "edgar", "phoenix_permits", "tucson_permits"}
+        else "sam"
+    )
     return Prospect(
         prospect_id=_prospect_id(record),
         profile_id=profile.profile_id,
@@ -614,7 +822,7 @@ def prospect_from_record(profile: Profile, record: PublicRecord, today: date) ->
         consent_status="existing_relationship",
         do_not_contact=False,
         notes=_notes(record),
-        attributes={},
+        attributes=_record_attributes(profile, record),
         phone=record.phone,
         mailing_address=record.mailing_address,
         contact_title=record.contact_title,
@@ -643,12 +851,18 @@ def _notes(record: PublicRecord) -> str:
 def _prospect_id(record: PublicRecord) -> str:
     raw = record.uei or record.source_record_id or record.business_name
     safe = "".join(character for character in raw if character.isalnum())[:20] or "record"
-    prefix = {"sam": "SAM", "edgar": "EDG", "phoenix_permits": "PHX"}.get(record.source, "PUB")
+    prefix = {"sam": "SAM", "edgar": "EDG", "phoenix_permits": "PHX", "tucson_permits": "TUC"}.get(
+        record.source, "PUB"
+    )
     return f"{prefix}-{safe}"
 
 
+# A live model call takes several seconds. Only the rows a person sees first get a written reason.
+REASON_LIMIT = 5
+
+
 def _fill_reasons(hits, request, profile, root) -> None:
-    for hit in hits:
+    for hit in hits[:REASON_LIMIT]:
         prompt = reason_prompt(request, _fact_lines(hit.record))
         sentence = _one_reason(root, profile, prompt, hit.record, 1, None)
         if sentence is None:
@@ -664,7 +878,10 @@ def _fill_reasons(hits, request, profile, root) -> None:
 
 
 def _one_reason(root, profile, prompt, record, attempt, retry_reason):
-    text = _model(root, profile, "reason", prompt, attempt, retry_reason)
+    try:
+        text = _model(root, profile, "reason", prompt, attempt, retry_reason)
+    except (FileNotFoundError, ProviderError, OSError):
+        return ""
     sentence = _parse_reason(text)
     if reason_is_grounded(sentence, record):
         return sentence
@@ -732,6 +949,7 @@ def _query(filt: SearchFilter) -> SourceQuery:
         naics=list(filt.naics),
         state=filt.state,
         city=filt.city,
+        cities=list(filt.cities),
         business_type=filt.business_type,
         permit_type=filt.permit_type,
         date_from=filt.date_from,
@@ -787,6 +1005,24 @@ def _strip_fence(text: str) -> str:
             lines = lines[:-1]
         return "\n".join(lines).strip()
     return stripped
+
+
+def _record_attributes(profile: Profile, record: PublicRecord) -> dict:
+    declared = profile.attributes
+    cities = {
+        city.casefold()
+        for metro in profile.search.metros
+        for city in metro.cities
+    }
+    if not cities:
+        cities = {city.casefold() for city in profile.search.cities}
+    values = {
+        "in_service_area": "yes" if record.city.casefold() in cities else "no",
+        "named_contact": "yes" if record.contact_name.strip() else "no",
+        "recent_permit": "yes" if record.recent_permit else "no",
+        "hiring_fit": "yes" if set(record.naics) & set(profile.fit_naics) else "no",
+    }
+    return {key: value for key, value in values.items() if key in declared}
 
 
 def _fact_lines(record: PublicRecord) -> str:

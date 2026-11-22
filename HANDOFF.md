@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M10 done locally, not pushed. Find can match a typed industry to an official NAICS title and filter by Census size class. A Market size card shows County Business Patterns establishment totals for the profile county. The public repo is https://github.com/driaialchemy/leadgenerator. M9 is already on main.
+M11 done locally, not pushed. The screen is Acme Plumbing, one business. Search runs from the metro, industry, and size fields. The translator runs only when the request box has text, and a translator failure still searches. SAM.gov is one Arizona query, at most 5 pages, and a daily limit keeps the rows already fetched. The shortlist is only businesses the person adds. The public repo is https://github.com/driaialchemy/leadgenerator. M10 is the commit under this one and is also not pushed.
 
 ## Done
 
@@ -14,19 +14,22 @@ M10 done locally, not pushed. Find can match a typed industry to an official NAI
 - `python -m leadgen.check_keys` reports each provider without printing a key. `LEADGEN_DEMO_TEMPT=1` tempts the Drafter on attempt 1 only.
 - Approval writes `outbox/<run_id>.txt` once. `REJECTED` writes nothing. The kill switch stops run and approve before a model call. The page calls `decide`, the same function the CLI prints.
 - Replays live in `sample_data/replays/`. B2B-001 and HOME-002 reuse the caught fixture, then the good fixture.
-- The class page is `src/leadgen/app.py`. Launch it with `powershell -ExecutionPolicy Bypass -File run_app.ps1`. The steps are Find, Shortlist, Draft, Review, and Send. The sidebar is the business, Practice data or Live, and More. More holds the logbook, the funnel, and Settings. Settings holds the model for each step, the red-team toggle, Check keys, Demo safety, and the Gmail and Outlook connection. The page says "Waiting for your approval" and does not ship an image.
+- The page is `src/leadgen/app.py`. Launch it with `powershell -ExecutionPolicy Bypass -File run_app.ps1`. The steps are Find, Shortlist, Draft, Review, and Send. The sidebar is the business name and More. More holds the logbook, the funnel, and Settings. Settings holds the model for each step, Check keys, Allowlist only, and the Gmail and Outlook connection. The page says "Waiting for your approval" and does not ship an image.
 - Send offers Practice, Gmail, and Outlook. Practice is the outbox file written at approval. Gmail uses the compose scope. Outlook uses delegated `Mail.Send` and `Mail.ReadWrite`. The code never lists or reads messages. Tokens stay in `C:\Users\msell\secrets`. See `docs/EMAIL_SETUP.md`.
 - Mail safeguards live in `deliver`: an approval record, a second confirmation, Demo safety, the signed-in address on the allowlist, one confirmed send per run, a session send cap, no email means no mailbox action, the opt-out line and sender identity, and the kill switch. A provider must return a message id before the note is marked sent.
 - Search reads SAM.gov, SEC EDGAR, and City of Phoenix permits. Offline replays trimmed fixtures. A source that fails does not stop the others.
 - Find matches a typed industry to a 2022 NAICS title, including a misspelling, and shows removable chips. Size bands are 1–49, 50–249, 250–499, and 500–999. The typed words are not sent. SAM, EDGAR, and Phoenix do not provide a public headcount, so those rows say "Size not in public record".
 - The Market size card reads County Business Patterns for 2023, the latest published year, for the profile county (Maricopa County, Arizona by default). It shows establishment counts by size band. It is county totals, not a list of businesses. `CENSUS_API_KEY` is optional. A census failure is one plain sentence and the business search still returns.
-- 178 tests pass, and 2 live tests stay skipped unless `LEADGEN_LIVE_TESTS=1`. Mail tests use fake Gmail and Graph clients.
-- Published on `main` at https://github.com/driaialchemy/leadgenerator.
-- Three more profiles: workflow studio, admin desk, and local-letter sponsors. Each has six synthetic prospects and eight outcome rows. Scoring, the verifier, and approval are unchanged. The picker uses `menu_order` so the original profile stays first.
+- Acme Plumbing is the only profile in `config/profiles/`. Sender name, postal address, and phone are placeholders. Gmail and Outlook Send now is refused until those three are real. Drafts and Practice still work. The approved price is "$150 per hour plus parts". A discount or a different price is blocked.
+- Search uses the on-screen fields. The translator runs only when the request box has text. A bad model reply is ignored after one retry and the field search still runs. Unknown extra JSON keys are dropped. NAICS codes are still checked against the CSV, and the other values are still checked against the fixed lists.
+- SAM.gov is one Arizona query. Metro cities are filtered in code. `sam_page_budget` defaults to 5. A rate limit or daily limit stops SAM, keeps the fetched rows, and the status line says "SAM.gov daily limit reached; results resume tomorrow". Phoenix and Tucson use the larger ArcGIS page sizes. The record cap is 200.
+- The shortlist is `runs/shortlist.json`. It shows the businesses added from Find, by name. Scoring is 30 in the service area, 25 for a named contact, 25 for a recent permit, and 20 for an industry that tends to hire commercial plumbing.
+- 171 passed, 2 skipped. Those 2 run only when `LEADGEN_LIVE_TESTS=1`. Mail tests use fake Gmail and Graph clients.
+- Published on `main` at https://github.com/driaialchemy/leadgenerator. M10 and M11 are local commits on top of that.
 
 ## Next
 
-M10 is committed locally. Push when the owner replies "approved push". M6 through M9 are already on main.
+M11 is committed locally. Push when the owner replies "approved push". M6 through M9 are already on main. M10 is the commit under M11 and is also unpushed.
 
 ## Known issues
 

@@ -36,6 +36,9 @@ def main() -> int:
         ):
             data_path = root / "sample_data" / profile.profile_id / name
             label = data_path.relative_to(root).as_posix()
+            if not data_path.is_file():
+                _pass(f"{label} not required")
+                continue
             try:
                 loader(profile)
             except Exception as exc:

@@ -16,6 +16,7 @@ SOURCE_PAGE = "https://www.census.gov/programs-surveys/cbp/data.html"
 FAILURE = (
     "County Business Patterns did not respond. The business search is unchanged."
 )
+NEEDS_KEY = "County Business Patterns needs CENSUS_API_KEY. The business search is unchanged."
 _UNAVAILABLE = "unavailable"
 _SIZE_CODES = tuple(code for band in BANDS for code in band.census)
 
@@ -103,6 +104,8 @@ def load_market(
         else:
             rows = parse_cbp(_fixture())
     except (SourceFailure, ValueError, OSError, json.JSONDecodeError, TimeoutError, KeyError, TypeError):
+        if network and not os.environ.get("CENSUS_API_KEY", "").strip():
+            return None, NEEDS_KEY
         return None, FAILURE
     selected = [band for band in BANDS if not band_ids or band.id in band_ids]
     industries = []

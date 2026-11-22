@@ -190,3 +190,15 @@ Find matches typed text to an official 2022 NAICS title with `difflib` and `conf
 Size bands are the Census classes 1–49, 50–249, 250–499, and 500–999. A record with no headcount stays in the list unless "Only show businesses with a known size" is on. Nothing is estimated. SAM.gov's employee count is not public, EDGAR submissions have no headcount, and the Phoenix fields used here have none. Live mode says so and points to the Market size card.
 
 The card reads County Business Patterns for 2023, the latest year the Census Bureau has published, for the county on the profile. The default is Maricopa County, Arizona. It shows establishment counts by industry and size band. Those are county totals, not businesses. `CENSUS_API_KEY` is optional and is not stored in the 24-hour cache. If the call fails, one plain sentence is shown and the business search still returns.
+
+## 2026-11-21 — Acme Plumbing is the product
+
+The screen is one business, Acme Plumbing. The other profile files are test fixtures under `tests/fixtures/profiles/` so the older engine tests still load. The page does not list them.
+
+Search starts from the metro areas, industry chips, and size. The translator runs only when the request box has text. If it fails after one retry, a plain message is shown and the field search still runs. A translator failure cannot empty the source list. Model JSON may include a fence, prose, or unknown keys. Unknown keys are dropped. NAICS codes are still checked against the CSV, and the other values are still checked against the fixed lists.
+
+SAM.gov is queried once for Arizona. The metro cities are filtered in code. `sam_page_budget` is 5. A rate-limit or daily-limit response stops SAM, keeps the rows already fetched, and the status line is "SAM.gov daily limit reached; results resume tomorrow". Phoenix and Tucson page with their larger ArcGIS sizes, up to the 200-record cap. Tucson is the commercial building layer `PDSD_CommercialBldg`. There is no separate Pima County permit feed. Census cards cover Maricopa and Pima.
+
+The shortlist is only businesses added from Find, saved in `runs/shortlist.json`. Scoring is 30 for the service area, 25 for a named contact, 25 for a recent permit, and 20 for an industry on the profile's fit list.
+
+The sender name, postal address, and phone are placeholders in the YAML. While any of those three remains, Gmail and Outlook Send now is refused with "Add Acme's real sender name, address, and phone in the settings file before sending". Drafts and Practice still work. The only approved price is "$150 per hour plus parts". A discount or a different price is blocked. A model reply that cannot be read shows one plain message, retries once, and the raw error stays in the flight recorder. The logbook uses plain sentences.

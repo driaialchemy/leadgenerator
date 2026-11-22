@@ -48,7 +48,10 @@ def load_pipeline_config(path: Path | None = None) -> PipelineConfig:
 
 
 def _profile_path(profile_id: str) -> Path:
-    return repo_root() / "config" / "profiles" / f"{profile_id}.yaml"
+    primary = repo_root() / "config" / "profiles" / f"{profile_id}.yaml"
+    if primary.is_file():
+        return primary
+    return repo_root() / "tests" / "fixtures" / "profiles" / f"{profile_id}.yaml"
 
 
 def _validate(model, data):

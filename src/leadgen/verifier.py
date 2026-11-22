@@ -39,7 +39,7 @@ def verify(
     blocking += _empty_text(draft)
     blocking += _tokens(draft, prospect, profile)
     blocking += _raw_facts(draft, prospect)
-    blocking += _digits(draft)
+    blocking += _digits(draft, profile)
     blocking += _banned(draft, profile)
     blocking += _too_long(draft, pipeline)
     blocking += _subject(draft, profile)
@@ -161,10 +161,11 @@ def _fact_in_text(text: str, fact: str) -> bool:
     return re.search(pattern, text.casefold()) is not None
 
 
-def _digits(draft: DraftEmail) -> list[BlockingIssue]:
+def _digits(draft: DraftEmail, profile: Profile) -> list[BlockingIssue]:
     issues: list[BlockingIssue] = []
     for field in ("hook", "bridge"):
-        for match in _NUMBER.finditer(getattr(draft, field)):
+        text = _without_claims(getattr(draft, field), profile)
+        for match in _NUMBER.finditer(text):
             number = match.group(0)
             issues.append(
                 BlockingIssue(
@@ -177,6 +178,14 @@ def _digits(draft: DraftEmail) -> list[BlockingIssue]:
                 )
             )
     return issues
+
+
+def _without_claims(text: str, profile: Profile) -> str:
+    cleaned = text
+    for claim in profile.approved_claims.values():
+        if claim:
+            cleaned = cleaned.replace(claim, " ")
+    return cleaned
 
 
 def _banned(draft: DraftEmail, profile: Profile) -> list[BlockingIssue]:

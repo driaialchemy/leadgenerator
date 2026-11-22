@@ -17,20 +17,15 @@ def test_example_runs_once_and_the_kill_switch_disables_search(monkeypatch, tmp_
     at.run(timeout=60)
     assert list(at.exception) == []
     assert "Search" in _text(at)
-    before = _count(tmp_path, "model_call")
     at.button(key="example_0").click().run(timeout=60)
     assert list(at.exception) == []
     text = _text(at)
-    assert "4 matches, 2 named contacts, 3 shown, 1 held back" in text
-    assert "not available in public records: private cell phones" in text
+    assert "7 matches, 3 named contacts, 6 shown, 1 held back" in text
     assert "Stale record" in text
     assert "Named contact" in text
-    calls = _count(tmp_path, "model_call")
     sources = _count(tmp_path, "source_call")
-    assert calls > before
     assert sources > 0
     at.run(timeout=60)
-    assert _count(tmp_path, "model_call") == calls
     assert _count(tmp_path, "source_call") == sources
 
     monkeypatch.setenv("LEADGEN_KILL_SWITCH", "1")

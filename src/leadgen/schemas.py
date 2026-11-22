@@ -5,7 +5,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-Source = Literal["referral", "web_form", "event", "cold_list", "sam", "edgar", "phoenix_permits"]
+Source = Literal[
+    "referral",
+    "web_form",
+    "event",
+    "cold_list",
+    "sam",
+    "edgar",
+    "phoenix_permits",
+    "tucson_permits",
+]
 ConsentStatus = Literal["opt_in", "existing_relationship", "none"]
 Stage = Literal["sent", "replied", "meeting", "won", "lost_after_meeting"]
 AttributeType = Literal["int", "str"]
@@ -57,6 +66,8 @@ class Sender(BaseModel):
     name: str
     company: str
     postal_address: str
+    phone: str = ""
+    placeholder_fields: list[str] = Field(default_factory=list)
 
 
 class ScoringRule(BaseModel):
@@ -146,6 +157,19 @@ class CountyConfig(BaseModel):
     county_fips: str = "013"
 
 
+class MetroConfig(BaseModel):
+    """One service-area metro. City filtering happens in code after the state query."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    cities: list[str]
+    county_name: str
+    state: str = "AZ"
+    state_fips: str = "04"
+    county_fips: str
+
+
 class SearchConfig(BaseModel):
     """Allowlists and sources for a plain-language search. Empty means unused."""
 
@@ -159,6 +183,7 @@ class SearchConfig(BaseModel):
     permit_types: list[str] = Field(default_factory=list)
     areas: list[str] = Field(default_factory=list)
     county: CountyConfig = Field(default_factory=CountyConfig)
+    metros: list[MetroConfig] = Field(default_factory=list)
     sources: list[SourceSpec] = Field(default_factory=list)
 
 
@@ -179,6 +204,7 @@ class Profile(BaseModel):
     banned_phrases: list[str]
     buyer_persona: str
     search: SearchConfig = Field(default_factory=SearchConfig)
+    fit_naics: list[str] = Field(default_factory=list)
 
 
 class TierBounds(BaseModel):
@@ -210,7 +236,8 @@ class PipelineConfig(BaseModel):
     evaluator_pass_score: int = Field(ge=1, le=5)
     max_ai_words: int = Field(ge=10)
     max_claims: int = Field(ge=1)
-    source_record_cap: int = Field(default=10, ge=1, le=25)
+    source_record_cap: int = Field(default=200, ge=1, le=1000)
+    sam_page_budget: int = Field(default=5, ge=1, le=20)
     source_cache_hours: int = Field(default=24, ge=1)
     send_cap: int = Field(default=5, ge=1)
     allowlist: list[str] = Field(default_factory=list)

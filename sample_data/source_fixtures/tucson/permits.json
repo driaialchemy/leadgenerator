@@ -1,0 +1,30 @@
+{
+  "features": [
+    {
+      "attributes": {
+        "NUMBER": "TUC-100",
+        "ADDRESS": "100 W Congress St",
+        "CITY": "Tucson",
+        "STATUS": "Issued",
+        "TYPE": "Commercial",
+        "ISSUEDATE": "2026-06-01",
+        "PROJECTNAME": "Congress Kitchen",
+        "DESCRIPTION": "Tenant improvement",
+        "VALUE": "80000"
+      }
+    },
+    {
+      "attributes": {
+        "NUMBER": "TUC-200",
+        "ADDRESS": "200 N Oracle Rd",
+        "CITY": "Oro Valley",
+        "STATUS": "Issued",
+        "TYPE": "Commercial",
+        "ISSUEDATE": "2026-05-01",
+        "PROJECTNAME": "Oracle Inn",
+        "DESCRIPTION": "Hotel remodel",
+        "VALUE": "120000"
+      }
+    }
+  ]
+}

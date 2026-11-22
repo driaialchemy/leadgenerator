@@ -1,4 +1,4 @@
-"""Class walkthrough. One prospect, from the ranked list to the outbox."""
+"""Find businesses, draft a note from approved facts, and sign it before it is saved."""
 
 import json
 import os
@@ -10,7 +10,7 @@ from leadgen.approve import decide, latest_run
 from leadgen.check_keys import main as check_keys_main
 from leadgen.industry import BAND_IDS, ids_for_labels, labels_for, live_size_note, suggest, title_for
 from leadgen.kill_switch import KillSwitchEngaged
-from leadgen.llm import ConfigError, ProviderError, current_mode
+from leadgen.llm import ConfigError, ProviderError, current_mode, scrub
 from leadgen.mail import (
     NO_EMAIL,
     connect_account,
@@ -19,10 +19,10 @@ from leadgen.mail import (
     disconnect_account,
     refusal_reason,
 )
-from leadgen.loaders import load_prospects
-from leadgen.pipeline import run_prospect
+from leadgen.pipeline import _log, run_prospect
 from leadgen.profiles import load_pipeline_config, load_profile
 from leadgen.schemas import Prospect
+from leadgen.shortlist import add_shortlist, load_shortlist
 from leadgen.search import remember_add, search
 from leadgen.ui_data import (
     contact_channels,
@@ -36,7 +36,7 @@ from leadgen.ui_data import (
     outbox_rows,
     profile_ids,
     profile_name,
-    prospect_board,
+    _limit_view,
     refresh_search,
     rendered_text,
     role_rows,
@@ -84,22 +84,39 @@ FIELD_TO = "field_to"
 FIELD_BUSINESS = "field_business"
 FIELD_CONTACT = "field_contact"
 FIELD_MAX = "field_max"
+SHOWN_ROWS = 25
 
 
 def main() -> None:
-    st.set_page_config(page_title="Lead & Income Finder", layout="wide")
+    try:
+        _page()
+    except Exception as exc:
+        _screen_error(exc)
+
+
+def _screen_error(exc: Exception) -> None:
+    try:
+        _log(data_root(), "screen", "error", "screen", "error", scrub(str(exc))[:500])
+    except Exception:
+        pass
+    st.error("Something went wrong. Details saved to the logbook.")
+
+
+def _page() -> None:
+    st.set_page_config(page_title="Acme Plumbing", layout="wide")
     apply_theme()
     _init_state()
     root = data_root()
     killed = kill_message(root)
     profile_id = _sidebar(killed)
+    _consume_adds(root, profile_id)
     _consume_search(root, load_profile(profile_id))
     _consume_run(root, profile_id)
     _consume_decision(root, profile_id)
     _consume_mail(root)
     st.markdown(
-        '<div class="banner"><h1>Lead &amp; Income Finder</h1>'
-        "<p>Find a business, draft a note from approved facts, and sign it before anything is saved.</p></div>",
+        '<div class="banner"><h1>Acme Plumbing</h1>'
+        "<p>Find a business in the service area, draft a note from approved facts, and sign it before anything is saved.</p></div>",
         unsafe_allow_html=True,
     )
     _tiles(root, profile_id)
@@ -141,25 +158,9 @@ def _init_state() -> None:
     st.session_state.setdefault("mail_destination", "Practice")
     st.session_state.setdefault("mail_action", "Save as draft")
     st.session_state.setdefault("mail_result", None)
-    if "data_mode" not in st.session_state:
-        st.session_state.data_mode = "Practice data" if current_mode() == "offline" else "Live"
-
-
 def _sidebar(killed: str) -> str:
-    ids = profile_ids()
-    profile_id = st.sidebar.selectbox(
-        "Business",
-        ids,
-        format_func=profile_name,
-        key="profile",
-    )
-    st.sidebar.radio(
-        "Data mode",
-        ["Practice data", "Live"],
-        key="data_mode",
-        on_change=_apply_mode,
-        help="Practice data uses saved examples. Live calls the accounts.",
-    )
+    profile_id = profile_ids()[0]
+    st.sidebar.markdown(profile_name(profile_id))
     if killed:
         st.sidebar.error(killed)
     st.sidebar.markdown("More")
@@ -167,11 +168,6 @@ def _sidebar(killed: str) -> str:
     st.sidebar.button("Funnel", key="nav_funnel", on_click=_go, args=("funnel",))
     st.sidebar.button("Settings", key="nav_settings", on_click=_go, args=("settings",))
     return profile_id
-
-
-def _apply_mode() -> None:
-    choice = st.session_state.get("data_mode")
-    os.environ["LEADGEN_LLM_MODE"] = "offline" if choice == "Practice data" else "live"
 
 
 def _tiles(root: Path, profile_id: str) -> None:
@@ -228,9 +224,8 @@ def _try_go(step: str) -> None:
 def _ready(step: str) -> bool:
     if step in {"search", "shortlist", "logbook", "funnel", "settings"}:
         return True
-    profile_id = st.session_state.get("profile") or ""
     if step == "run":
-        return bool(profile_id) and bool(prospect_board(profile_id)["eligible_ids"])
+        return bool(load_shortlist(data_root()))
     if step == "review":
         return bool(st.session_state.get("last_run"))
     if step == "outbox":
@@ -294,17 +289,16 @@ def _panel(name: str):
 def _search_tab(root: Path, profile_id: str, killed: str) -> None:
     st.markdown('<div class="step-card step-card-search"><p>1 · Find</p></div>', unsafe_allow_html=True)
     st.header("Find")
-    st.markdown("Describe the businesses you want. Press an example, or type your own and press Search.")
+    st.markdown("Pick a metro and, if you want, an industry and a size. Press Search. A written request is optional.")
     profile = load_profile(profile_id)
-    example = profile.search.examples[0] if profile.search.examples else "Registered firms in Phoenix"
-    st.info(f"Try this: press “{example}”. The list should name a business, how to reach them, and why they fit.")
+    example = profile.search.examples[0] if profile.search.examples else ""
     st.text_input(
         "Request",
         key="search_query",
         placeholder=example,
-        help="Example: Registered firms in Phoenix",
+        help="Leave this blank to search from the fields below. Words here are read only when the box has text.",
     )
-    _industry_picker()
+    _industry_picker(profile)
     for index, text in enumerate(profile.search.examples):
         st.button(
             text,
@@ -329,6 +323,8 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         st.info("No matches yet. Press an example or change the request.")
         return
     _search_fields(profile, view)
+    for line in view.get("statuses") or []:
+        st.markdown(line)
     for message in view.get("messages") or []:
         st.warning(message)
     if view.get("field_error"):
@@ -337,7 +333,14 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         st.info(line)
     if view.get("summary"):
         st.markdown(view["summary"])
-    _market_card(view.get("market"))
+        if len(view.get("rows") or []) < int(view.get("shown") or 0):
+            st.caption("The table shows the best matches first. Change Max results to see more.")
+    markets = view.get("markets") or []
+    if markets:
+        for market in markets:
+            _market_card(market)
+    else:
+        _market_card(view.get("market"))
     rows = view.get("rows") or []
     if rows:
         st.markdown(
@@ -368,15 +371,16 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         st.info("No matches yet. Press an example or change a field, then press Update results.")
     if view.get("held_back_note"):
         st.markdown(view["held_back_note"])
-    for item in view.get("prospects") or []:
-        if st.button("Add to pipeline", key=f"add_{item['prospect_id']}"):
-            _add_person(root, profile_id, item)
+    if rows:
+        st.button("Add all shown", key="add_all", on_click=_queue_add_all)
+    for row in rows:
+        st.button("Add", key=f"add_{row['prospect_id']}", on_click=_queue_add, args=(row["prospect_id"],))
     view = st.session_state.get("search_view") or {}
     if view.get("profile_id") == profile_id and view.get("summary"):
         st.button("Next", key="next_search", on_click=_go, args=("shortlist",), type=_kind("search", True))
 
 
-def _industry_picker() -> None:
+def _industry_picker(profile) -> None:
     st.text_input(
         "What kind of business are you looking for?",
         key="industry_query",
@@ -420,6 +424,16 @@ def _industry_picker() -> None:
         key="known_size_only",
         help="A record with no headcount stays in the list until this is on. No size is estimated.",
     )
+    names = [metro.name for metro in profile.search.metros]
+    if names and "metros" not in st.session_state:
+        st.session_state.metros = list(names)
+    if names:
+        st.multiselect(
+            "Metro areas",
+            names,
+            key="metros",
+            help="SAM.gov is queried once for Arizona. These cities are kept in code.",
+        )
     note = live_size_note(current_mode())
     if note:
         st.caption(note)
@@ -467,12 +481,9 @@ def _queue_search(text: str | None = None) -> None:
     if text is not None:
         st.session_state.search_query = text
         st.session_state.industry_chips = []
-    request = st.session_state.get("search_query") or text or ""
-    if not str(request).strip() and (
-        st.session_state.get("industry_chips") or _chosen_sizes()
-    ):
-        request = "selected industries"
+    request = text if text is not None else (st.session_state.get("search_query") or "")
     st.session_state.pending_search = request
+    st.session_state.pending_search_ready = True
 
 
 def _queue_update() -> None:
@@ -486,15 +497,7 @@ def _queue_run() -> None:
 def _consume_run(root: Path, profile_id: str) -> None:
     if not st.session_state.pop("pending_run", False):
         return
-    added = [
-        item["prospect_id"]
-        for item in st.session_state.get("added_people") or []
-        if item["profile_id"] == profile_id
-    ]
-    board = prospect_board(profile_id)
-    choices = list(board["eligible_ids"]) + [
-        item for item in added if item not in board["eligible_ids"]
-    ]
+    choices = [row["prospect_id"] for row in _shortlist_rows(root, profile_id)]
     prospect_id = st.session_state.get("prospect")
     if prospect_id not in choices and choices:
         prospect_id = choices[0]
@@ -503,9 +506,59 @@ def _consume_run(root: Path, profile_id: str) -> None:
         _start_run(root, profile_id, prospect_id)
 
 
+def _queue_add(prospect_id: str) -> None:
+    pending = list(st.session_state.get("pending_adds") or [])
+    if prospect_id not in pending:
+        pending.append(prospect_id)
+    st.session_state.pending_adds = pending
+
+
+def _queue_add_all() -> None:
+    view = st.session_state.get("search_view") or {}
+    st.session_state.pending_adds = [row["prospect_id"] for row in view.get("rows") or []]
+
+
+def _consume_adds(root: Path, profile_id: str) -> None:
+    wanted = st.session_state.pop("pending_adds", None)
+    if not wanted:
+        return
+    view = st.session_state.get("search_view") or {}
+    prospects = {item["prospect_id"]: item for item in view.get("prospects") or []}
+    rows = []
+    for row in view.get("rows") or []:
+        if row.get("prospect_id") not in wanted:
+            continue
+        item = prospects.get(row["prospect_id"]) or {}
+        if not item.get("prospect"):
+            continue
+        rows.append(
+            {
+                "profile_id": profile_id,
+                "prospect_id": row["prospect_id"],
+                "prospect": item["prospect"],
+                "business": row.get("business") or "",
+                "city": row.get("city") or "",
+                "industry": row.get("industry") or "",
+                "contact_name": row.get("contact_name") or "",
+                "contact_title": row.get("contact_title") or "",
+                "channels": row.get("channels") or "",
+                "score": row.get("score") or 0,
+                "fit": row.get("fit") or "",
+            }
+        )
+    if rows:
+        add_shortlist(root, rows)
+        for row in rows:
+            remember_add(root, Prospect.model_validate(row["prospect"]))
+
+
+def _shortlist_rows(root: Path, profile_id: str) -> list[dict]:
+    return [row for row in load_shortlist(root) if row.get("profile_id") == profile_id]
+
+
 def _consume_search(root: Path, profile) -> None:
-    pending = st.session_state.pop("pending_search", "")
-    if pending:
+    if st.session_state.pop("pending_search_ready", False):
+        pending = st.session_state.pop("pending_search", "") or ""
         _run_search(root, profile, pending)
         _seed_fields(st.session_state.get("search_view") or {})
         return
@@ -553,7 +606,7 @@ def _seed_fields(view: dict) -> None:
     st.session_state[FIELD_TO] = values.get("date_to") or ""
     st.session_state[FIELD_BUSINESS] = values.get("business_type") or ""
     st.session_state[FIELD_CONTACT] = "Any"
-    st.session_state[FIELD_MAX] = "10"
+    st.session_state[FIELD_MAX] = str(SHOWN_ROWS)
     codes = [item.strip() for item in str(values.get("naics") or "").split(",") if item.strip()]
     st.session_state.industry_chips = [
         {"code": code, "title": title_for(code) or code} for code in codes
@@ -622,6 +675,7 @@ def _run_search(root: Path, profile, request: str) -> None:
             chosen_naics=[item["code"] for item in chips] or None,
             chosen_sizes=_chosen_sizes(),
             known_size_only=bool(st.session_state.get("known_size_only")),
+            chosen_cities=_chosen_cities(profile),
         )
     except KillSwitchEngaged as exc:
         st.session_state.notice = str(exc)
@@ -637,7 +691,21 @@ def _run_search(root: Path, profile, request: str) -> None:
     view = search_view(outcome)
     view["profile_id"] = profile.profile_id
     view["request"] = request
+    _limit_view(view, {"max_results": str(SHOWN_ROWS)})
     st.session_state.search_view = view
+
+
+def _chosen_cities(profile) -> list[str] | None:
+    if not profile.search.metros:
+        return None
+    selected = set(st.session_state.get("metros") or [])
+    cities = []
+    for metro in profile.search.metros:
+        if metro.name in selected:
+            for city in metro.cities:
+                if city not in cities:
+                    cities.append(city)
+    return cities
 
 
 def _add_person(root: Path, profile_id: str, item: dict) -> None:
@@ -661,72 +729,47 @@ def _add_person(root: Path, profile_id: str, item: dict) -> None:
 def _shortlist_tab(profile_id: str) -> None:
     st.markdown('<div class="step-card step-card-shortlist"><p>2 · Shortlist</p></div>', unsafe_allow_html=True)
     st.header("Shortlist")
-    st.markdown("These are the people the rules ranked. Continue to Draft when you want a note.")
-    board = prospect_board(profile_id)
-    if not board["ranked"] and not board["excluded"]:
-        st.info("No one to show yet.")
+    st.markdown("Businesses you added from Find. A refresh keeps this list.")
+    rows = _shortlist_rows(data_root(), profile_id)
+    if not rows:
+        st.info("No businesses yet. On Find, press Add or Add all shown.")
     else:
-        rows = [
-            {
-                "Person": row["prospect_id"],
-                "Score": row["score"],
-                "Fit": tier_label(row["tier"]),
-                "Ready": "Yes" if row["draft_eligible"] else "No",
-            }
-            for row in board["ranked"]
-        ]
-        st.markdown(markdown_table(rows, ["Person", "Score", "Fit", "Ready"]))
-        for row in board["ranked"]:
-            with st.expander(f"Rules {row['prospect_id']}"):
-                for hit in row["rule_hits"]:
-                    mark = "yes" if hit["matched"] else "no"
-                    st.markdown(f"{hit['field']}: {hit['points']} points, matched {mark}")
-    st.subheader("Excluded")
-    excluded = [
-        {"Person": item["prospect_id"], "Reason": exclusion_label(item["reason"])}
-        for item in board["excluded"]
-    ]
-    st.markdown(markdown_table(excluded, ["Person", "Reason"]))
-    st.subheader("Findings")
-    findings = [
-        {"Person": item["prospect_id"], "Note": item["message"]}
-        for item in board["findings"]
-    ]
-    st.markdown(markdown_table(findings, ["Person", "Note"]))
-    if board["eligible_ids"]:
+        st.markdown(
+            markdown_table(
+                [
+                    {
+                        "Business": row.get("business") or "",
+                        "City": row.get("city") or "",
+                        "Industry": row.get("industry") or "",
+                        "Contact": " ".join(
+                            part for part in (row.get("contact_name"), row.get("contact_title")) if part
+                        ),
+                        "Channels": row.get("channels") or "",
+                        "Score": row.get("score") or 0,
+                        "Fit": row.get("fit") or "",
+                    }
+                    for row in rows
+                ],
+                ["Business", "City", "Industry", "Contact", "Channels", "Score", "Fit"],
+            )
+        )
         st.button("Next", key="next_shortlist", on_click=_go, args=("run",), type=_kind("shortlist", True))
 
 
 def _run_tab(root: Path, profile_id: str, killed: str) -> None:
     st.markdown('<div class="step-card step-card-run"><p>3 · Draft</p></div>', unsafe_allow_html=True)
     st.header("Draft")
-    st.markdown("Pick a person and press Run. The steps below say what happened.")
-    added = [
-        item
-        for item in st.session_state.get("added_people") or []
-        if item["profile_id"] == profile_id
-    ]
-    if added:
-        st.subheader("Added this session")
-        st.markdown(
-            markdown_table(
-                [{"Person": item["prospect_id"]} for item in added],
-                ["Person"],
-            )
-        )
-    else:
-        st.info("No one added yet. Search, then click Add to pipeline.")
-    board = prospect_board(profile_id)
-    eligible = list(board["eligible_ids"])
-    extra = [item["prospect_id"] for item in added if item["prospect_id"] not in eligible]
-    choices = eligible + extra
+    st.markdown("Pick a business and press Run. The steps below say what happened.")
+    rows = _shortlist_rows(root, profile_id)
+    choices = [row["prospect_id"] for row in rows]
+    names = {row["prospect_id"]: row.get("business") or row["prospect_id"] for row in rows}
     if not choices:
-        st.info("No one is ready for a draft.")
+        st.info("No business is ready for a draft. Add one from Find.")
         st.button("Run", key="run", disabled=True, type=_kind("run", True))
         return
     if st.session_state.get("prospect") not in choices:
         st.session_state.prospect = choices[0]
-    st.selectbox("Person", choices, key="prospect")
+    st.selectbox("Business", choices, format_func=lambda item: names.get(item, item), key="prospect")
     drafted = bool(st.session_state.last_run)
     st.button(
         "Run",
@@ -767,10 +810,7 @@ def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
     st.session_state.decision = None
     st.session_state.last_status = ""
     st.session_state.last_run = ""
-    if st.session_state.get("red_team"):
-        os.environ["LEADGEN_DEMO_TEMPT"] = "1"
-    else:
-        os.environ.pop("LEADGEN_DEMO_TEMPT", None)
+    os.environ.pop("LEADGEN_DEMO_TEMPT", None)
     profile = load_profile(profile_id)
     prospect = _lookup_prospect(profile, prospect_id)
     pipeline = load_pipeline_config()
@@ -780,12 +820,23 @@ def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
         st.session_state.notice = str(exc)
         return
     except ProviderError as exc:
-        st.session_state.notice = (
-            f"{exc.role} {exc.provider}: {exc.line()}. switch to Offline or fix the account"
-        )
+        line = exc.line()
+        if line == "The model reply could not be read.":
+            st.session_state.notice = line
+        else:
+            st.session_state.notice = (
+                f"{exc.role} {exc.provider}: {line}. switch to Offline or fix the account"
+            )
         return
     except ConfigError as exc:
         st.session_state.notice = str(exc)
+        return
+    except Exception as exc:
+        try:
+            _log(root, "screen", "error", "screen", "error", scrub(str(exc))[:500])
+        except Exception:
+            pass
+        st.session_state.notice = "Something went wrong. Details saved to the logbook."
         return
     finally:
         os.environ.pop("LEADGEN_DEMO_TEMPT", None)
@@ -795,10 +846,10 @@ def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
 
 
 def _lookup_prospect(profile, prospect_id: str):
-    for item in st.session_state.get("added_people") or []:
-        if item["profile_id"] == profile.profile_id and item["prospect_id"] == prospect_id:
+    for item in load_shortlist(data_root()):
+        if item.get("profile_id") == profile.profile_id and item.get("prospect_id") == prospect_id:
             return Prospect.model_validate(item["prospect"])
-    return next(item for item in load_prospects(profile) if item.prospect_id == prospect_id)
+    raise LookupError(prospect_id)
 
 
 def _review_tab(root: Path, profile_id: str, killed: str) -> None:
@@ -1090,7 +1141,7 @@ def _logbook_tab(root: Path) -> None:
         return
     plain = [
         {
-            "What happened": _event_label(row.get("event_type")),
+            "What happened": _event_sentence(row),
             "Attempt": row.get("attempt_number") or "",
         }
         for row in rows
@@ -1098,24 +1149,35 @@ def _logbook_tab(root: Path) -> None:
     st.markdown(markdown_table(plain, ["What happened", "Attempt"]))
 
 
-def _event_label(event_type: str | None) -> str:
-    labels = {
-        "model_call": "Model call",
-        "gate": "Claim check",
-        "verification": "Draft check",
-        "evaluation": "Quality score",
-        "retry": "Trying again",
-        "approval": "Approval",
-        "outbox": "Saved note",
-        "mail_draft": "Mailbox draft",
-        "mail_send": "Mailbox send",
-        "refusal": "Not sent",
-        "error": "Problem",
-        "search": "Search",
-        "source_call": "Public record lookup",
-        "add_to_pipeline": "Added to the pipeline",
-    }
-    return labels.get(event_type or "", "Recorded step")
+def _event_sentence(row: dict) -> str:
+    kind = row.get("event_type") or ""
+    detail = str(row.get("detail") or "").strip()
+    model = row.get("model") or ""
+    seconds = ""
+    duration = row.get("duration_ms")
+    if isinstance(duration, int):
+        seconds = f" ({duration / 1000:.1f} s)"
+    if kind == "model_call":
+        names = {
+            "tailor": "Wrote the pitch",
+            "drafter": "Wrote the email draft",
+            "evaluator": "Checked the draft",
+            "translator": "Read the request",
+            "reason": "Wrote the reason",
+        }
+        who = f" with {model}" if model else ""
+        return f"{names.get(row.get('actor') or '', 'Finished a step')}{who}{seconds}"
+    if kind == "verifier":
+        if row.get("status") == "ok":
+            return "Checked the draft: passed"
+        return "Checked the draft: needs changes"
+    if kind == "evaluator":
+        return detail or "Checked the draft"
+    if kind == "error":
+        return "A step failed. Details saved to the logbook."
+    if detail:
+        return detail
+    return "Saved a step"
 
 
 def _funnel_tab(profile_id: str) -> None:
@@ -1139,7 +1201,7 @@ def _funnel_tab(profile_id: str) -> None:
 
 def _settings_tab(root: Path) -> None:
     st.header("Settings")
-    st.markdown("Practice data uses saved examples. Live calls the accounts. Check keys does not show a key.")
+    st.markdown("Check keys does not show a key.")
     labels = {
         "tailor": "Tailor the pitch",
         "drafter": "Write the email",
@@ -1152,19 +1214,12 @@ def _settings_tab(root: Path) -> None:
         provider = providers.get(row["provider"], row["provider"])
         st.markdown(f"{labels.get(row['role'], 'Step')}: {provider}, {row['model']}")
     st.checkbox(
-        "Red-team toggle",
-        key="red_team",
-        help="On the next Run only, the first draft is tempted to offer a discount.",
-    )
-    st.checkbox(
-        "Demo safety",
+        "Allowlist only",
         key="demo_safety",
         help="When this is on, Send now only reaches an allowlisted address or your own account.",
     )
     if not st.session_state.demo_safety:
-        st.warning(
-            "Demo safety is off. Send now can reach addresses that are not on the allowlist."
-        )
+        st.warning("Allowlist only is off. Send now can reach addresses that are not on the allowlist.")
     for destination, title in (("gmail", "Gmail"), ("outlook", "Outlook")):
         status = connection_status(destination)
         st.markdown(f"{title}: {status['label']}")
@@ -1185,8 +1240,6 @@ def _settings_tab(root: Path) -> None:
         st.session_state.key_report = buffer.getvalue()
     if st.session_state.key_report:
         st.code(st.session_state.key_report)
-    mode = "Practice data" if current_mode() == "offline" else "Live"
-    st.caption(f"Data mode: {mode}")
 
 
 main()

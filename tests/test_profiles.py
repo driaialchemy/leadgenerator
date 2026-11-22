@@ -131,7 +131,7 @@ def test_flag_when_needs_an_attribute(tmp_path):
 
 
 def _b2b_data():
-    path = ROOT / "config" / "profiles" / "b2b_services.yaml"
+    path = ROOT / "tests" / "fixtures" / "profiles" / "b2b_services.yaml"
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 

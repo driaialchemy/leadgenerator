@@ -9,11 +9,11 @@ ENDPOINT = "https://api.sam.gov/entity-information/v3/entities"
 SECTIONS = "entityRegistration,coreData,pointsOfContact,assertions"
 
 
-def sam_params(query: SourceQuery, cap: int) -> list[tuple[str, str]]:
+def sam_params(query: SourceQuery, cap: int, page: int = 0) -> list[tuple[str, str]]:
     """Fixed query keys. The API key is added at request time and is not in this list."""
     params = [
         ("includeSections", SECTIONS),
-        ("page", "0"),
+        ("page", str(page)),
         ("size", str(cap)),
     ]
     if query.legal_name:
@@ -23,7 +23,7 @@ def sam_params(query: SourceQuery, cap: int) -> list[tuple[str, str]]:
         params.append(("naicsCode", "~".join(query.naics)))
     if query.state:
         params.append(("physicalAddressProvinceOrStateCode", query.state))
-    if query.city:
+    if query.city and not query.cities:
         params.append(("physicalAddressCity", query.city))
     if query.business_type:
         params.append(("businessTypeDesc", query.business_type))
@@ -48,7 +48,11 @@ def matches_sam(record: PublicRecord, query: SourceQuery) -> bool:
         return False
     if query.state and record.state.casefold() != query.state.casefold():
         return False
-    if query.city and record.city.casefold() != query.city.casefold():
+    wanted = {city.casefold() for city in query.cities}
+    if wanted:
+        if record.city.casefold() not in wanted:
+            return False
+    elif query.city and record.city.casefold() != query.city.casefold():
         return False
     if query.business_type and not any(
         item.casefold() == query.business_type.casefold() for item in record.business_types

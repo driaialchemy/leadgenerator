@@ -8,10 +8,26 @@ _TOKEN = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
 ALLOWED_TOKENS = ("contact_first_name", "organization", "region", "sender_name")
 
 
+_COMPANY_WORDS = frozenset(
+    "inc llc llp lp ltd co corp corporation company contractors contracting construction "
+    "fire security systems services solutions group international development team "
+    "pipeline concrete paving asphalt elevator protection building electric plumbing".split()
+)
+
+
+def _first_name(contact_name: str) -> str:
+    """A permit contact is often a company. Only a person's name gives a first name."""
+    parts = contact_name.replace(",", " ").replace(".", " ").split()
+    if not parts or len(parts) > 3:
+        return ""
+    if any(part.casefold().strip("+&") in _COMPANY_WORDS for part in parts):
+        return ""
+    return parts[0]
+
+
 def token_values(prospect: Prospect, profile: Profile) -> dict[str, str]:
     """Values code is allowed to substitute. Empty organization stays empty."""
-    parts = prospect.contact_name.split()
-    first = parts[0] if parts else ""
+    first = _first_name(prospect.contact_name)
     return {
         "contact_first_name": first,
         "organization": (prospect.organization or "").strip(),
@@ -46,9 +62,13 @@ def render(draft: DraftEmail, prospect: Prospect, profile: Profile) -> RenderedE
         f"- {profile.approved_claims[claim_id]}" for claim_id in draft.claim_ids
     )
     sender = profile.sender
+    closing = [sender.name, sender.company, sender.postal_address]
+    if sender.phone.strip():
+        closing.append(sender.phone)
+    closing.append(profile.opt_out_line)
     body = "\n".join(
         [
-            f"Hi {values['contact_first_name']},",
+            f"Hi {values['contact_first_name'] or 'there'},",
             "",
             fill(draft.hook, values),
             "",
@@ -58,10 +78,7 @@ def render(draft: DraftEmail, prospect: Prospect, profile: Profile) -> RenderedE
             "",
             fill(profile.cta, values),
             "",
-            sender.name,
-            sender.company,
-            sender.postal_address,
-            profile.opt_out_line,
+            *closing,
         ]
     )
     return RenderedEmail(

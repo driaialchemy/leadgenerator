@@ -100,7 +100,11 @@ def prospect_board(profile_id: str) -> dict:
 
 def funnel_view(profile_id: str) -> dict:
     profile = load_profile(profile_id)
-    return funnel(load_outcomes(profile)).model_dump()
+    try:
+        outcomes = load_outcomes(profile)
+    except FileNotFoundError:
+        outcomes = []
+    return funnel(outcomes).model_dump()
 
 
 def attempt_comparison(run_dir: Path) -> list[dict]:
@@ -157,14 +161,16 @@ def logbook(root: Path, run_id: str) -> list[dict]:
 
 
 def summary_tiles(root: Path, profile_id: str, shown: int) -> list[dict]:
-    """Five counts for the class page. A signed run is not still waiting."""
-    board = prospect_board(profile_id)
+    """Five counts. A signed run is not still waiting."""
+    from leadgen.shortlist import load_shortlist
+
+    shortlisted = len([row for row in load_shortlist(root) if row.get("profile_id") == profile_id])
     waiting = 0
     approved = 0
     runs = Path(root) / "runs"
     if runs.is_dir():
         for folder in runs.iterdir():
-            if not folder.is_dir():
+            if not folder.is_dir() or not _run_belongs(folder, profile_id):
                 continue
             approval = folder / "approval.json"
             if approval.is_file():
@@ -184,14 +190,26 @@ def summary_tiles(root: Path, profile_id: str, shown: int) -> list[dict]:
                 status = None
             if status == "PENDING_APPROVAL":
                 waiting += 1
-    sent = len(outbox_rows(root))
+    sent = len([row for row in outbox_rows(root) if _run_belongs(runs / Path(row["file"]).stem, profile_id)])
     return [
         {"label": "Businesses found", "value": shown, "tone": "found"},
-        {"label": "On shortlist", "value": len(board["ranked"]), "tone": "shortlist"},
+        {"label": "On shortlist", "value": shortlisted, "tone": "shortlist"},
         {"label": "Drafts waiting", "value": waiting, "tone": "waiting"},
         {"label": "Approved", "value": approved, "tone": "approved"},
         {"label": "Sent", "value": sent, "tone": "sent"},
     ]
+
+
+def _run_belongs(folder: Path, profile_id: str) -> bool:
+    """Runs written for a profile that no longer exists are not counted."""
+    path = folder / "status.json"
+    if not path.is_file():
+        return True
+    try:
+        owner = json.loads(path.read_text(encoding="utf-8")).get("profile_id")
+    except json.JSONDecodeError:
+        return True
+    return not owner or owner == profile_id
 
 
 def outbox_rows(root: Path) -> list[dict]:
@@ -269,12 +287,18 @@ def search_view(outcome) -> dict:
         rows.append(
             {
                 "business": hit.business_name,
+                "city": hit.record.city,
                 "industry": title_for(code) or code,
+                "contact_name": hit.record.contact_name,
+                "contact_title": hit.record.contact_title,
+                "channels": _channels(hit.record),
+                "score": hit.score,
+                "fit": _fit_label(hit.score),
                 "size": f"{count} employees" if count is not None else "Size not in public record",
                 "label": hit.label,
                 "stale": "Stale record" if hit.stale else "",
                 "source": SOURCE_LABELS.get(hit.source, hit.source),
-                "why": hit.reason,
+                "why": hit.reason or f"{hit.label}, {hit.record.city or 'city not listed'}. Scored {hit.score} of 100.",
                 "prospect_id": hit.prospect_id,
                 "url": hit.record.source_url,
             }
@@ -305,6 +329,7 @@ def search_view(outcome) -> dict:
             parts.append(f"{label}: {value}")
     return {
         "summary": summary,
+        "shown": outcome.shown,
         "rows": rows,
         "prospects": prospects,
         "messages": list(outcome.messages),
@@ -322,12 +347,29 @@ def search_view(outcome) -> dict:
             "area": filt.area,
             "sources": list(filt.sources),
             "sizes": list(filt.sizes),
+            "cities": list(filt.cities),
             "known_size_only": filt.known_size_only,
         },
         "unsupported_raw": list(outcome.unsupported),
         "market": getattr(outcome, "market", None),
+        "markets": list(getattr(outcome, "markets", None) or []),
+        "statuses": list(getattr(outcome, "statuses", None) or []),
         "size_note": live_size_note(current_mode()),
     }
+
+
+def _channels(record) -> str:
+    parts = [record.phone, record.mailing_address]
+    found = [part for part in parts if part and part.strip()]
+    return ", ".join(found) if found else "No channel on record"
+
+
+def _fit_label(score: int) -> str:
+    if score >= 70:
+        return "Hot"
+    if score >= 40:
+        return "Warm"
+    return "Cold"
 
 
 def profile_name(profile_id: str) -> str:
@@ -421,6 +463,9 @@ def refresh_search(profile, previous: dict, edits: dict, root: Path) -> dict:
         naics = [item.strip() for item in str(stored.get("naics") or "").split(",") if item.strip()]
         permit_type = kind
     location = str(edits.get("location") or "").strip()
+    cities = list(stored.get("cities") or [])
+    if location and location.casefold() in {city.casefold() for city in profile.search.cities}:
+        cities = [city for city in profile.search.cities if city.casefold() == location.casefold()]
     date_from = str(edits.get("date_from") or "").strip()
     date_to = str(edits.get("date_to") or "").strip()
     if not _date_ok(date_from) or not _date_ok(date_to):
@@ -434,6 +479,7 @@ def refresh_search(profile, previous: dict, edits: dict, root: Path) -> dict:
         naics=naics,
         state=stored.get("state") or "",
         city=location,
+        cities=cities,
         business_type=str(edits.get("business_type") or "").strip(),
         permit_type=permit_type,
         date_from=date_from,

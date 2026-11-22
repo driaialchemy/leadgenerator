@@ -7,12 +7,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 from leadgen.exclusions import apply_exclusions
 from leadgen.findings import run_note_checks
 from leadgen.flight_recorder import append_event, recorder_path
 from leadgen.gates import check_tailor
+from leadgen.json_text import parse_model_json
 from leadgen.kill_switch import assert_not_engaged
-from leadgen.llm import complete, current_mode, scrub
+from leadgen.llm import ProviderError, complete, current_mode, scrub
 from leadgen.messages import (
     drafter_prompt,
     evaluator_prompt,
@@ -169,7 +172,9 @@ def _call_tailor(folder, run_dir, profile, prospect, attempt, feedback) -> Tailo
     text = _model_call(
         folder, run_dir, "tailor", prompt, profile.profile_id, prospect.prospect_id, attempt
     )
-    parsed = TailorResult.model_validate_json(text)
+    parsed = _read_json(
+        text, TailorResult, folder, run_dir, "tailor", prompt, profile.profile_id, prospect.prospect_id, attempt
+    )
     _write_json(run_dir / "tailor.json", parsed)
     _write_json(run_dir / f"tailor.attempt{attempt}.json", parsed)
     return TailorResult.model_validate_json((run_dir / "tailor.json").read_text(encoding="utf-8"))
@@ -197,7 +202,9 @@ def _draft_pass(folder, run_dir, profile, prospect, tailor, attempt, feedback) -
     text = _model_call(
         folder, run_dir, "drafter", prompt, profile.profile_id, prospect.prospect_id, attempt
     )
-    parsed = DraftEmail.model_validate_json(text)
+    parsed = _read_json(
+        text, DraftEmail, folder, run_dir, "drafter", prompt, profile.profile_id, prospect.prospect_id, attempt
+    )
     _write_json(run_dir / "draft.json", parsed)
     _write_json(run_dir / f"draft.attempt{attempt}.json", parsed)
     fresh = DraftEmail.model_validate_json((run_dir / "draft.json").read_text(encoding="utf-8"))
@@ -251,7 +258,17 @@ def _eval_pass(folder, run_dir, profile, prospect, pipeline) -> str:
     text = _model_call(
         folder, run_dir, "evaluator", prompt, profile.profile_id, prospect.prospect_id, attempt
     )
-    parsed = EvaluatorResult.model_validate_json(text)
+    parsed = _read_json(
+        text,
+        EvaluatorResult,
+        folder,
+        run_dir,
+        "evaluator",
+        prompt,
+        profile.profile_id,
+        prospect.prospect_id,
+        attempt,
+    )
     _write_json(run_dir / "evaluation.json", parsed)
     _write_json(run_dir / f"evaluation.attempt{attempt}.json", parsed)
     fresh = EvaluatorResult.model_validate_json((run_dir / "evaluation.json").read_text(encoding="utf-8"))
@@ -290,6 +307,20 @@ def _low_scores(result: EvaluatorResult, pipeline: PipelineConfig) -> str:
     if result.suggestions:
         parts.append("Suggestions: " + " ".join(result.suggestions))
     return "; ".join(parts)
+
+
+def _read_json(text, model, folder, run_dir, role, prompt, profile_id, prospect_id, attempt):
+    """Parse a model reply. One retry, then a plain message. The raw error stays in the log."""
+    try:
+        return parse_model_json(text, model)
+    except (ValueError, json.JSONDecodeError, ValidationError) as exc:
+        _log(folder, run_dir.name, "error", role, "error", scrub(str(exc))[:500])
+        second = _model_call(folder, run_dir, role, prompt, profile_id, prospect_id, attempt)
+        try:
+            return parse_model_json(second, model)
+        except (ValueError, json.JSONDecodeError, ValidationError) as again:
+            _log(folder, run_dir.name, "error", role, "error", scrub(str(again))[:500])
+            raise ProviderError(role, "", "", "", "The model reply could not be read.") from again
 
 
 def _model_call(folder, run_dir, role, prompt, profile_id, prospect_id, attempt) -> str:

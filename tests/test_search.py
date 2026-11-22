@@ -111,7 +111,7 @@ def test_parameter_templates_are_fixed():
     )
     assert permit[0] == (
         "where",
-        "1=1 AND PERMIT_TYPE = 'Building' AND PERMIT_ISSUE_DATE >= DATE '2026-05-24' "
+        "1=1 AND PERMIT_TYPE LIKE '%;Commercial;%' AND PERMIT_ISSUE_DATE >= DATE '2026-05-24' "
         "AND PERMIT_ISSUE_DATE <= DATE '2026-11-20' AND UPPER(ADDRESS) LIKE UPPER('%Phoenix%')",
     )
     assert permit[1] == ("outFields", OUT_FIELDS)
@@ -147,7 +147,8 @@ def test_record_cap_keeps_ten():
     raw = json.loads((ROOT / "sample_data" / "source_fixtures" / "sam" / "entities.json").read_text(encoding="utf-8"))
     raw["entityData"] = [raw["entityData"][0]] * 12
     assert len(parse_sam(json.dumps(raw))[:10]) == 10
-    assert load_pipeline_config().source_record_cap == 10
+    assert load_pipeline_config().source_record_cap == 200
+    assert load_pipeline_config().sam_page_budget == 5
     assert one.business_name
     assert payload["entityData"]
 
@@ -247,7 +248,7 @@ def test_rate_limit_and_timeout_leave_the_other_source(tmp_path, monkeypatch):
     limited_result = execute(
         profile, _home_filter(), [], tmp_path, today=TODAY, network=True, transport=limited
     )
-    assert limited_result.messages == ["SAM.gov is rate limited."]
+    assert limited_result.messages == ["SAM.gov daily limit reached; results resume tomorrow"]
     assert limited_result.shown == 1
 
     def timed_out(url, params, headers, timeout):
