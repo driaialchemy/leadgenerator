@@ -202,3 +202,11 @@ SAM.gov is queried once for Arizona. The metro cities are filtered in code. `sam
 The shortlist is only businesses added from Find, saved in `runs/shortlist.json`. Scoring is 30 for the service area, 25 for a named contact, 25 for a recent permit, and 20 for an industry on the profile's fit list.
 
 The sender name, postal address, and phone are placeholders in the YAML. While any of those three remains, Gmail and Outlook Send now is refused with "Add Acme's real sender name, address, and phone in the settings file before sending". Drafts and Practice still work. The only approved price is "$150 per hour plus parts". A discount or a different price is blocked. A model reply that cannot be read shows one plain message, retries once, and the raw error stays in the flight recorder. The logbook uses plain sentences.
+
+## 2026-11-21 — Acme branding is screen only
+
+The look is Acme's own: a top bar, a hero with an original wordmark and water drop, and a calm blue, sky, and slate palette. No real company's logo, mascot, or wording is used, and a test scans the repo for known names. The header words are in the profile YAML under `brand:` so the page code has no price or slogan in it.
+
+The bar is a darker cyan, `#0E7490`, because white text on the bright `#06B6D4` fails contrast. The bright cyan is a thin line under the bar. Approved green `#16A34A` and amber `#F59E0B` carry dark text for the same reason. Red is used only for blocked. Hero text is checked against the lightest case: a white photo under the 62 percent overlay.
+
+The hero photo is the owner's own file, git-ignored. Code shrinks it to a web copy under 150 KB and caches it. With no photo the hero is a gradient with a drop, and there is no error. Pillow does the resize. Only `ui_theme.py` and `.streamlit/config.toml` hold colors, and a test checks that.

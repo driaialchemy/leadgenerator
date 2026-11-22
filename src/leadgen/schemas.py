@@ -187,6 +187,16 @@ class SearchConfig(BaseModel):
     sources: list[SourceSpec] = Field(default_factory=list)
 
 
+class Brand(BaseModel):
+    """Words on the page header. Screen only. The email never reads this."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    service_line: str = ""
+    hero_title: str = ""
+    hero_subtitle: str = ""
+
+
 class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -194,6 +204,7 @@ class Profile(BaseModel):
     menu_order: int = 0
     display_name: str
     sender: Sender
+    brand: Brand = Field(default_factory=Brand)
     opt_out_line: str
     attributes: dict[str, AttributeType]
     scoring_rules: list[ScoringRule]

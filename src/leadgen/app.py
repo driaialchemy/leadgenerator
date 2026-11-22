@@ -47,7 +47,7 @@ from leadgen.ui_data import (
     summary_tiles,
     tier_label,
 )
-from leadgen.ui_theme import apply_theme, icon
+from leadgen.ui_theme import apply_theme, header_html, icon
 
 STEPS = (
     "search",
@@ -114,11 +114,7 @@ def _page() -> None:
     _consume_run(root, profile_id)
     _consume_decision(root, profile_id)
     _consume_mail(root)
-    st.markdown(
-        '<div class="banner"><h1>Acme Plumbing</h1>'
-        "<p>Find a business in the service area, draft a note from approved facts, and sign it before anything is saved.</p></div>",
-        unsafe_allow_html=True,
-    )
+    _header(profile_id)
     _tiles(root, profile_id)
     _tracker()
     _lock_note()
@@ -139,6 +135,11 @@ def _page() -> None:
         _funnel_tab(profile_id)
     with _panel("settings"):
         _settings_tab(root)
+
+
+def _header(profile_id: str) -> None:
+    profile = load_profile(profile_id)
+    st.markdown(header_html(profile.brand, profile.display_name), unsafe_allow_html=True)
 
 
 def _init_state() -> None:

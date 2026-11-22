@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M11 done locally, not pushed. The screen is Acme Plumbing, one business. Search runs from the metro, industry, and size fields. The translator runs only when the request box has text, and a translator failure still searches. SAM.gov is one Arizona query, at most 5 pages, and a daily limit keeps the rows already fetched. The shortlist is only businesses the person adds. The public repo is https://github.com/driaialchemy/leadgenerator. M10 is the commit under this one and is also not pushed.
+M12 done locally, not pushed. The page has Acme's own look: a cyan top bar, a hero with a wordmark, and a blue, sky, and slate palette. The words in the bar and hero come from `brand:` in `config/profiles/acme_plumbing.yaml`. Colors live only in `src/leadgen/ui_theme.py` and `.streamlit/config.toml`. Screen only; search, sources, pipeline, scoring, verifier, approval, mail, and the recorder are untouched. M10 and M11 are also local commits. The public repo is https://github.com/driaialchemy/leadgenerator.
 
 ## Done
 
@@ -29,8 +29,13 @@ M11 done locally, not pushed. The screen is Acme Plumbing, one business. Search 
 
 ## Next
 
-M11 is committed locally. Push when the owner replies "approved push". M6 through M9 are already on main. M10 is the commit under M11 and is also unpushed.
+M10, M11, and M12 are committed locally. Push when the owner replies "approved push". M6 through M9 are already on main. M10 is the commit under M11 and is also unpushed.
+
+- Hero photo: Mike supplies `assets/source/hero_shower.jpg` (git-ignored). Until it exists the hero is a blue-to-cyan gradient with a water drop. The first render with a photo writes `assets/hero_shower_web.jpg`, under 150 KB, and reuses it.
 
 ## Known issues
 
-None.
+- No hero photo is in the repo yet, so the gradient shows.
+- Live search needs `SAM_API_KEY`, `LEADGEN_EDGAR_USER_AGENT`, and `CENSUS_API_KEY`. None is in the key file, so only the Phoenix and Tucson permit sources return rows.
+- Permit sources give a permit or project name and a contractor contact, not a verified business. They carry no email.
+- Old runs from removed profiles are still in `runs/` and `outbox/`. The tiles skip them.

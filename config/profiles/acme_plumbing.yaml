@@ -11,6 +11,10 @@ sender:
     - name
     - postal_address
     - phone
+brand:
+  service_line: "Greater Phoenix & Tucson · $150/hr plus parts"
+  hero_title: "Acme Plumbing"
+  hero_subtitle: "Find and reach commercial customers"
 opt_out_line: "If you would rather not hear from us, reply stop and we will not write again."
 attributes:
   in_service_area: str
