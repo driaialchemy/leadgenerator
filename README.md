@@ -136,6 +136,14 @@ Safeguards, enforced in code:
 - The kill switch blocks drafting and sending.
 - A failed sign-in, a network failure, or a provider rejection shows one plain message and a Reconnect button. The note is not marked sent unless the provider returns a message id. Settings shows each account as Connected with the address, Not connected, or Expired.
 
+## Live copy
+
+- URL: `https://<custom-name>.streamlit.app` (placeholder until the app is deployed).
+- Redeploy: push to `main`. Cloud rebuilds. If the old look shows, Manage app, three-dot menu, Reboot.
+- Secrets: only in the Streamlit Secrets box, never in the repo. Names: `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `LEADGEN_LLM_MODE = "live"`. Type straight quotes.
+- Cloud-only differences: Gmail and Outlook are hidden; an approved note gets "Copy email" and "Open in my email app"; searches and drafts reset when the app restarts; "Check keys" is hidden.
+- The link is open (no password) by decision. See `DECISIONS.md`.
+
 ## Architecture
 
 ```

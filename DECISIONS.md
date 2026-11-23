@@ -259,3 +259,13 @@ The summary line is plain words. The size breakdown shows only when a size was c
 - Remove Census change-indicator markers from displayed NAICS titles. Show the related SIC selector only when there is an explicit crosswalk entry, and explain when the selected NAICS lacks one.
 - Blend Streamlit's otherwise empty header strip into the page surface so it does not appear as an unexplained black bar.
 
+
+# 2026-11-22 — Live copy on Streamlit Community Cloud
+
+- The link is open, with no password. One person gets it by email, and Mike accepts the API cost for one user. If it leaks, rotate the three provider keys or delete the app.
+- On Cloud nothing is sent from the server. Gmail and Outlook connect, draft, and send are hidden. An approved note offers "Copy email" and "Open in my email app" (a `mailto:` link), so the person sends from their own mailbox.
+- "Check keys" is hidden on Cloud so a visitor cannot spend API calls with it.
+- Settings load order: environment variable, then Streamlit secrets, then the local key file, then `.env`. A missing key file or missing secrets is not an error. Live model mode is the default on Cloud.
+- Cloud is detected by the repo path starting with `/mount/src/`. `LEADGEN_CLOUD=1` or `0` overrides it, which is how tests and the fresh-clone check fake it.
+- Data on Cloud is a shared copy: `runs/` and `outbox/` are created at startup and reset when the app restarts.
+- The permit tests now use a frozen copy of the old profile (`tests/fixtures/profiles/acme_permits.yaml`) because the live profile no longer carries permit rules.

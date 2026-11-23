@@ -72,3 +72,12 @@ M10, M11, M12, and M11.1 are committed locally. Push when the owner replies "app
 - Removed Census change-indicator `T` suffixes from NAICS titles. A selected NAICS now reveals its related legacy SIC selector when a mapping exists; common real-estate entries and fitness centers are mapped. Otherwise the page explains that no crosswalk entry is available.
 - Changed the otherwise empty Streamlit header band to the page surface color to remove the dark strip shown in class screenshots.
 - Verified with an AppTest callback smoke check: selecting “fitness clubs” stores NAICS 713940, enables Search, and renders the SIC selector. Focused matcher test and sample validation pass. Live rows still require configured SAM.gov access.
+
+## 2026-11-22 — Live copy on Streamlit Community Cloud (M15)
+
+- Pushed to `main` at `0dcbbc7`: the directory app, the dark neon look, the guide, and the Cloud changes. `pytest -q`: 212 passed, 2 live skips.
+- Live URL: `https://<custom-name>.streamlit.app` (fill in after Mike deploys; planned name `aileadfinder-aialchemy`).
+- Redeploy: push to `main`. Cloud rebuilds on its own. If the old look shows, Manage app, then the three-dot menu, then Reboot.
+- Secrets live only in the app's Secrets box (Manage app, Settings, Secrets). Keys: `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `LEADGEN_LLM_MODE = "live"`. Use straight quotes. Never commit them.
+- Proved from a fresh clone: clean Python 3.11 venv install, Cloud flag, keys as environment variables only, one live draft approved. The Linux install was checked with `pip download --platform manylinux2014_x86_64 --python-version 3.11 --only-binary=:all:`, not run on Linux.
+- The "Sent" tile counts approved notes in `outbox/`. On Cloud nothing is sent from the server, so read it as "approved".
