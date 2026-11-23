@@ -1,5 +1,6 @@
 """Find businesses, draft a note from approved facts, and sign it before it is saved."""
 
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -8,9 +9,14 @@ import streamlit as st
 
 from leadgen.approve import decide, latest_run
 from leadgen.check_keys import main as check_keys_main
-from leadgen.industry import BAND_IDS, ids_for_labels, labels_for, live_size_note, suggest, title_for
+from leadgen.paths import repo_root
+from leadgen.guide import HOW_IT_WORKS, TOPICS
+from leadgen.reset import clear_everything
+from leadgen.profiles import load_sender, save_sender
+from leadgen.directory import available as directory_available, search_directory
+from leadgen.industry import BANDS, BAND_IDS, ids_for_labels, labels_for, sic_options_for, suggest
 from leadgen.kill_switch import KillSwitchEngaged
-from leadgen.llm import ConfigError, ProviderError, current_mode, scrub
+from leadgen.llm import ConfigError, ProviderError, scrub
 from leadgen.mail import (
     NO_EMAIL,
     connect_account,
@@ -22,14 +28,13 @@ from leadgen.mail import (
 from leadgen.pipeline import _log, run_prospect
 from leadgen.profiles import load_pipeline_config, load_profile
 from leadgen.schemas import Prospect
-from leadgen.shortlist import add_shortlist, load_shortlist
+from leadgen.shortlist import add_shortlist, load_shortlist, replace_shortlist
 from leadgen.search import remember_add, search
 from leadgen.ui_data import (
     contact_channels,
     data_root,
     draft_fields,
     exclusion_label,
-    funnel_view,
     kill_message,
     logbook,
     markdown_table,
@@ -37,7 +42,6 @@ from leadgen.ui_data import (
     profile_ids,
     profile_name,
     _limit_view,
-    refresh_search,
     rendered_text,
     role_rows,
     run_status,
@@ -56,34 +60,26 @@ STEPS = (
     "review",
     "outbox",
     "logbook",
-    "funnel",
     "settings",
 )
 WIZARD = ("search", "shortlist", "run", "review", "outbox")
 WIZARD_LABELS = {
     "search": "1 Find",
-    "shortlist": "2 Shortlist",
+    "shortlist": "2 Previous Searches",
     "run": "3 Draft",
     "review": "4 Review",
     "outbox": "5 Send",
 }
 LOCKS = {
     "run": (
-        "Pick someone on the Shortlist first",
-        "Pick someone on the Shortlist first",
-        "shortlist",
+        "Run a search first",
+        "Go to Find",
+        "search",
         "unlock_run",
     ),
     "review": ("Nothing to review yet", "Go to Draft", "run", "unlock_review"),
     "outbox": ("Nothing sent yet", "Go to Review", "review", "unlock_outbox"),
 }
-FIELD_KIND = "field_kind"
-FIELD_LOCATION = "field_location"
-FIELD_FROM = "field_from"
-FIELD_TO = "field_to"
-FIELD_BUSINESS = "field_business"
-FIELD_CONTACT = "field_contact"
-FIELD_MAX = "field_max"
 SHOWN_ROWS = 25
 
 
@@ -103,7 +99,7 @@ def _screen_error(exc: Exception) -> None:
 
 
 def _page() -> None:
-    st.set_page_config(page_title="Acme Plumbing", layout="wide")
+    st.set_page_config(page_title=load_profile(profile_ids()[0]).display_name, layout="wide")
     apply_theme()
     _init_state()
     root = data_root()
@@ -131,8 +127,6 @@ def _page() -> None:
         _outbox_tab(root, killed)
     with _panel("logbook"):
         _logbook_tab(root)
-    with _panel("funnel"):
-        _funnel_tab(profile_id)
     with _panel("settings"):
         _settings_tab(root)
 
@@ -159,16 +153,93 @@ def _init_state() -> None:
     st.session_state.setdefault("mail_destination", "Practice")
     st.session_state.setdefault("mail_action", "Save as draft")
     st.session_state.setdefault("mail_result", None)
+    st.session_state.setdefault("show_no_named_contact", True)
 def _sidebar(killed: str) -> str:
     profile_id = profile_ids()[0]
     st.sidebar.markdown(profile_name(profile_id))
     if killed:
         st.sidebar.error(killed)
+    st.sidebar.button("Search", key="side_search", on_click=_go, args=("search",))
+    st.sidebar.button("Previous Searches", key="side_previous", on_click=_go, args=("shortlist",))
     st.sidebar.markdown("More")
     st.sidebar.button("Logbook", key="nav_logbook", on_click=_go, args=("logbook",))
-    st.sidebar.button("Funnel", key="nav_funnel", on_click=_go, args=("funnel",))
     st.sidebar.button("Settings", key="nav_settings", on_click=_go, args=("settings",))
+    _clear_controls()
+    _how_it_works()
+    _guide()
     return profile_id
+
+
+def _how_it_works() -> None:
+    choice = st.sidebar.selectbox(
+        "How it works",
+        sorted(HOW_IT_WORKS, key=str.casefold),
+        index=None,
+        placeholder="Choose a topic",
+        key="how_it_works",
+    )
+    if choice:
+        st.sidebar.markdown(HOW_IT_WORKS[choice])
+
+
+def _guide() -> None:
+    answers = {title: answer for title, _keywords, answer in TOPICS}
+    choice = st.sidebar.selectbox(
+        "Usage guide",
+        sorted(answers, key=str.casefold),
+        index=None,
+        placeholder="Choose a topic",
+        key="usage_guide",
+    )
+    if choice:
+        st.sidebar.markdown(answers[choice])
+
+
+def _clear_controls() -> None:
+    if st.session_state.get("confirm_clear"):
+        st.sidebar.warning("Clear all searches, drafts, approvals and Practice sends? This can't be undone.")
+        yes, no = st.sidebar.columns(2)
+        yes.button("Yes, clear", key="clear_yes", on_click=_clear_all)
+        no.button("Cancel", key="clear_no", on_click=_cancel_clear)
+    else:
+        st.sidebar.button("Clear everything", key="clear_all", on_click=_ask_clear)
+    if st.session_state.pop("cleared_note", ""):
+        st.sidebar.success("Everything was cleared.")
+
+
+def _ask_clear() -> None:
+    st.session_state.confirm_clear = True
+
+
+def _cancel_clear() -> None:
+    st.session_state.confirm_clear = False
+
+
+def _clear_all() -> None:
+    root = data_root()
+    removed = clear_everything(root)
+    _log(
+        root,
+        "system",
+        "clear_everything",
+        "human",
+        "ok",
+        f"Cleared {removed['runs']} drafts, {removed['files']} saved lists, {removed['outbox']} Practice sends.",
+    )
+    for key, value in (
+        ("search_view", None),
+        ("last_run", ""),
+        ("last_status", ""),
+        ("decision", None),
+        ("prospect", None),
+        ("stages", []),
+        ("mail_result", None),
+        ("furthest", "search"),
+        ("step", "search"),
+        ("confirm_clear", False),
+        ("cleared_note", "done"),
+    ):
+        st.session_state[key] = value
 
 
 def _tiles(root: Path, profile_id: str) -> None:
@@ -223,10 +294,10 @@ def _try_go(step: str) -> None:
 
 
 def _ready(step: str) -> bool:
-    if step in {"search", "shortlist", "logbook", "funnel", "settings"}:
+    if step in {"search", "shortlist", "logbook", "settings"}:
         return True
     if step == "run":
-        return bool(load_shortlist(data_root()))
+        return bool(_load_current(data_root()) or load_shortlist(data_root()))
     if step == "review":
         return bool(st.session_state.get("last_run"))
     if step == "outbox":
@@ -290,24 +361,17 @@ def _panel(name: str):
 def _search_tab(root: Path, profile_id: str, killed: str) -> None:
     st.markdown('<div class="step-card step-card-search"><p>1 · Find</p></div>', unsafe_allow_html=True)
     st.header("Find")
-    st.markdown("Pick a metro and, if you want, an industry and a size. Press Search. A written request is optional.")
     profile = load_profile(profile_id)
-    example = profile.search.examples[0] if profile.search.examples else ""
     st.text_input(
-        "Request",
-        key="search_query",
-        placeholder=example,
-        help="Leave this blank to search from the fields below. Words here are read only when the box has text.",
+        "Your occupation or service field",
+        key="sender_field",
+        placeholder="e.g. Social media marketing",
     )
     _industry_picker(profile)
-    for index, text in enumerate(profile.search.examples):
-        st.button(
-            text,
-            key=f"example_{index}",
-            disabled=bool(killed),
-            on_click=_queue_search,
-            args=(text,),
-        )
+    st.checkbox(
+        "Include businesses without a named contact",
+        key="show_no_named_contact",
+    )
     view = st.session_state.get("search_view") or {}
     searched = view.get("profile_id") == profile_id and bool(view.get("summary"))
     st.button(
@@ -321,48 +385,31 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
         st.error(st.session_state.notice)
     view = st.session_state.get("search_view") or {}
     if view.get("profile_id") != profile_id:
-        st.info("No matches yet. Press an example or change the request.")
         return
-    _search_fields(profile, view)
-    for line in view.get("statuses") or []:
-        st.markdown(line)
-    for message in view.get("messages") or []:
-        st.warning(message)
-    if view.get("field_error"):
-        st.warning(view["field_error"])
-    for line in view.get("unsupported") or []:
-        st.info(line)
+    if view.get("search_notice"):
+        st.info(view["search_notice"])
     if view.get("summary"):
         st.markdown(view["summary"])
-        if len(view.get("rows") or []) < int(view.get("shown") or 0):
-            st.caption("The table shows the best matches first. Change Max results to see more.")
-    markets = view.get("markets") or []
-    if markets:
-        for market in markets:
-            _market_card(market)
-    else:
-        _market_card(view.get("market"))
     rows = view.get("rows") or []
+    if not st.session_state.get("show_no_named_contact", True):
+        rows = [row for row in rows if row.get("label") == "Named contact"]
     if rows:
         has_size = any("employees" in str(row.get("size") or "") for row in rows)
-        columns = ["Business", "Industry", "Project", "Contact", "Permits", "Latest permit", "Score"]
+        columns = ["Business", "Industry", "NAICS", "Contact", "City", "Score"]
         if has_size:
             columns.insert(4, "Size")
-        columns += ["Source", "Why it fits"]
+        columns += ["Source"]
         table = []
         for row in rows:
-            fresh = " · ".join(part for part in (row.get("latest"), row.get("stale")) if part)
             item = {
                 "Business": row["business"],
                 "Industry": row.get("industry") or "",
-                "Project": row.get("project") or "",
+                "NAICS": row.get("naics") or "",
                 "Contact": row.get("contact_text") or row["label"],
-                "Permits": row.get("permits") or "",
+                "City": row.get("city") or "",
                 "Size": row.get("size") or "",
-                "Latest permit": fresh,
                 "Score": row.get("score") or 0,
                 "Source": row["source"],
-                "Why it fits": row["why"],
             }
             table.append(item)
         st.markdown(markdown_table(table, columns))
@@ -370,65 +417,67 @@ def _search_tab(root: Path, profile_id: str, killed: str) -> None:
             with st.expander(row["business"]):
                 st.markdown(row["why"] or "No reason was recorded.")
                 if row.get("url"):
-                    st.markdown(f"[Open the public record]({row['url']})")
-                else:
-                    st.markdown("No source link on this record.")
+                    st.markdown(f"[Website]({row['url']})")
     else:
-        st.info("No matches yet. Press an example or change a field, then press Update results.")
-    if view.get("held_back_note"):
-        st.markdown(view["held_back_note"])
-    if rows:
-        st.button("Add all shown", key="add_all", on_click=_queue_add_all)
-    for row in rows:
-        st.button("Add", key=f"add_{row['prospect_id']}", on_click=_queue_add, args=(row["prospect_id"],))
-    view = st.session_state.get("search_view") or {}
-    if view.get("profile_id") == profile_id and view.get("summary"):
+        if not view.get("search_notice"):
+            st.info("No new businesses match. Clear Previous Searches to see earlier matches again.")
+    if view.get("remaining"):
+        st.button(
+            f"Show {min(SHOWN_ROWS, int(view['remaining']))} more",
+            key="next_results",
+            disabled=bool(killed),
+            on_click=_queue_more,
+        )
+    if view.get("summary"):
         st.button("Next", key="next_search", on_click=_go, args=("shortlist",), type=_kind("search", True))
 
 
 def _industry_picker(profile) -> None:
     st.text_input(
-        "What kind of business are you looking for?",
+        "Target company industry",
         key="industry_query",
-        placeholder="Type a business, then pick a suggestion",
-        help="The search uses the official code you pick. The words you type are not sent.",
+        placeholder="e.g. Restaurants",
+        on_change=_industry_query_changed,
     )
     query = str(st.session_state.get("industry_query") or "")
-    matches = suggest(query) if query.strip() else []
-    if matches and matches[0].confident:
-        st.caption("Did you mean")
-    elif query.strip():
-        st.caption("No close match. Closest broader categories:")
+    matches = suggest(query) if query.strip() and not st.session_state.get("industry_suggestions_hidden") else []
+    if query.strip() and not matches and not st.session_state.get("industry_suggestions_hidden"):
+        st.caption("No match. Try a broader word.")
     for index, match in enumerate(matches):
         st.button(
-            match.title,
+            f"{match.title} · {match.code}",
             key=f"suggest_{index}",
-            help=match.code,
             on_click=_add_chip,
             args=(match.code, match.title),
         )
-        st.caption(match.code)
-    for chip in list(st.session_state.get("industry_chips") or []):
+    chips = list(st.session_state.get("industry_chips") or [])
+    for chip in chips:
         st.button(
-            chip["title"],
+            f"✕ {chip['title']} · {chip['code']}",
             key=f"chip_{chip['code']}",
-            help="Remove this industry",
             on_click=_drop_chip,
             args=(chip["code"],),
         )
-        st.caption(chip["code"])
+    selected_codes = [str(item.get("code", "")) for item in st.session_state.get("industry_chips") or []]
+    sic_options = sic_options_for(selected_codes)
+    if sic_options:
+        st.selectbox(
+            "Related SEC SIC code",
+            options=[""] + [code for code, _title in sic_options],
+            format_func=lambda code: "Select a related SIC code" if not code else f"{code} — {dict(sic_options)[code]}",
+            key="selected_sic_code",
+        )
     st.multiselect(
         "Employee size",
         options=labels_for(list(BAND_IDS)),
         key="size_bands",
         placeholder="Any size",
-        help="Census size classes. Leave this empty for any size.",
         on_change=_touch_sizes,
     )
     st.checkbox(
         "Only show businesses with a known size",
         key="known_size_only",
-        help="A record with no headcount stays in the list until this is on. No size is estimated.",
+        on_change=_invalidate_search,
     )
     names = [metro.name for metro in profile.search.metros]
     if names and "metros" not in st.session_state:
@@ -438,11 +487,8 @@ def _industry_picker(profile) -> None:
             "Metro areas",
             names,
             key="metros",
-            help="SAM.gov is queried once for Arizona. These cities are kept in code.",
+            on_change=_invalidate_search,
         )
-    note = live_size_note(current_mode())
-    if note:
-        st.caption(note)
 
 
 def _market_card(market: dict | None) -> None:
@@ -462,16 +508,32 @@ def _add_chip(code: str, title: str) -> None:
     chips = [item for item in st.session_state.get("industry_chips") or [] if item.get("code") != code]
     chips.append({"code": code, "title": title})
     st.session_state.industry_chips = chips
+    st.session_state.industry_suggestions_hidden = True
+    st.session_state.selected_sic_code = ""
+    st.session_state.search_view = None
 
 
 def _drop_chip(code: str) -> None:
     st.session_state.industry_chips = [
         item for item in st.session_state.get("industry_chips") or [] if item.get("code") != code
     ]
+    st.session_state.selected_sic_code = ""
+    st.session_state.search_view = None
+
+
+def _industry_query_changed() -> None:
+    st.session_state.industry_chips = []
+    st.session_state.industry_suggestions_hidden = False
+    st.session_state.search_view = None
+
+
+def _invalidate_search() -> None:
+    st.session_state.search_view = None
 
 
 def _touch_sizes() -> None:
     st.session_state.size_bands_touched = True
+    st.session_state.search_view = None
 
 
 def _chosen_sizes():
@@ -484,16 +546,14 @@ def _chosen_sizes():
 
 
 def _queue_search(text: str | None = None) -> None:
-    if text is not None:
-        st.session_state.search_query = text
-        st.session_state.industry_chips = []
-    request = text if text is not None else (st.session_state.get("search_query") or "")
-    st.session_state.pending_search = request
+    st.session_state.pending_search = ""
     st.session_state.pending_search_ready = True
+    st.session_state.pending_search_more = False
 
 
-def _queue_update() -> None:
-    st.session_state.pending_update = True
+def _queue_more() -> None:
+    _queue_search()
+    st.session_state.pending_search_more = True
 
 
 def _queue_run() -> None:
@@ -503,7 +563,7 @@ def _queue_run() -> None:
 def _consume_run(root: Path, profile_id: str) -> None:
     if not st.session_state.pop("pending_run", False):
         return
-    choices = [row["prospect_id"] for row in _shortlist_rows(root, profile_id)]
+    choices = [row["prospect_id"] for row in _draft_rows(root, profile_id)]
     prospect_id = st.session_state.get("prospect")
     if prospect_id not in choices and choices:
         prospect_id = choices[0]
@@ -517,16 +577,19 @@ def _queue_add(prospect_id: str) -> None:
     if prospect_id not in pending:
         pending.append(prospect_id)
     st.session_state.pending_adds = pending
+    st.session_state.pending_add_mode = "append"
 
 
 def _queue_add_all() -> None:
     view = st.session_state.get("search_view") or {}
     st.session_state.pending_adds = [row["prospect_id"] for row in view.get("rows") or []]
+    st.session_state.pending_add_mode = "replace"
 
 
 def _consume_adds(root: Path, profile_id: str) -> None:
     wanted = st.session_state.pop("pending_adds", None)
-    if not wanted:
+    mode = st.session_state.pop("pending_add_mode", "append")
+    if wanted is None or (not wanted and mode != "replace"):
         return
     view = st.session_state.get("search_view") or {}
     prospects = {item["prospect_id"]: item for item in view.get("prospects") or []}
@@ -537,11 +600,20 @@ def _consume_adds(root: Path, profile_id: str) -> None:
         item = prospects.get(row["prospect_id"]) or {}
         if not item.get("prospect"):
             continue
+        prospect_data = dict(item["prospect"])
+        attributes = dict(prospect_data.get("attributes") or {})
+        sender_field = str(view.get("sender_field") or "").strip()
+        if sender_field:
+            attributes["sender_field"] = sender_field[:120]
+        target_market = str(row.get("industry") or "").strip()
+        if target_market:
+            attributes["target_market"] = target_market[:120]
+        prospect_data["attributes"] = attributes
         rows.append(
             {
                 "profile_id": profile_id,
                 "prospect_id": row["prospect_id"],
-                "prospect": item["prospect"],
+                "prospect": prospect_data,
                 "business": row.get("business") or "",
                 "city": row.get("city") or "",
                 "industry": row.get("industry") or "",
@@ -550,12 +622,48 @@ def _consume_adds(root: Path, profile_id: str) -> None:
                 "channels": row.get("channels") or "",
                 "score": row.get("score") or 0,
                 "fit": row.get("fit") or "",
+                "searched_at": view.get("searched_at") or "",
+                "search_label": view.get("search_label") or "",
             }
         )
-    if rows:
+    if mode == "current":
+        _save_current(root, _load_current(root) + rows)
+    elif mode == "replace":
+        replace_shortlist(root, rows)
+    elif rows:
         add_shortlist(root, rows)
-        for row in rows:
-            remember_add(root, Prospect.model_validate(row["prospect"]))
+    for row in rows:
+        remember_add(root, Prospect.model_validate(row["prospect"]))
+
+
+def _current_path(root: Path) -> Path:
+    return Path(root) / "runs" / "current_search.json"
+
+
+def _load_current(root: Path) -> list[dict]:
+    path = _current_path(root)
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [row for row in data if isinstance(row, dict) and row.get("prospect_id")] if isinstance(data, list) else []
+
+
+def _save_current(root: Path, rows: list[dict]) -> None:
+    unique, seen = [], set()
+    for row in rows:
+        if row.get("prospect_id") and row["prospect_id"] not in seen:
+            unique.append(row)
+            seen.add(row["prospect_id"])
+    path = _current_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(unique, indent=2), encoding="utf-8")
+
+
+def _current_rows(root: Path, profile_id: str) -> list[dict]:
+    return [row for row in _load_current(root) if row.get("profile_id") == profile_id]
 
 
 def _shortlist_rows(root: Path, profile_id: str) -> list[dict]:
@@ -564,140 +672,104 @@ def _shortlist_rows(root: Path, profile_id: str) -> list[dict]:
 
 def _consume_search(root: Path, profile) -> None:
     if st.session_state.pop("pending_search_ready", False):
-        pending = st.session_state.pop("pending_search", "") or ""
-        _run_search(root, profile, pending)
-        _seed_fields(st.session_state.get("search_view") or {})
-        return
-    if st.session_state.pop("pending_update", False):
-        previous = st.session_state.get("search_view") or {}
-        if previous.get("profile_id") == profile.profile_id:
-            view = refresh_search(profile, previous, _edits(), root)
-            st.session_state.search_view = view
-            st.session_state.fields_for = _token(view)
-        return
-    view = st.session_state.get("search_view") or {}
-    if view.get("profile_id") == profile.profile_id and st.session_state.get("fields_for") != _token(view):
-        _seed_fields(view)
-
-
-def _edits() -> dict:
-    return {
-        "kind": st.session_state.get(FIELD_KIND, ""),
-        "location": st.session_state.get(FIELD_LOCATION, ""),
-        "date_from": st.session_state.get(FIELD_FROM, ""),
-        "date_to": st.session_state.get(FIELD_TO, ""),
-        "business_type": st.session_state.get(FIELD_BUSINESS, ""),
-        "contact": st.session_state.get(FIELD_CONTACT, ""),
-        "max_results": st.session_state.get(FIELD_MAX, ""),
-        "sizes": _chosen_sizes(),
-        "known_size_only": bool(st.session_state.get("known_size_only")),
-    }
-
-
-def _token(view: dict) -> str:
-    values = view.get("filter_values") or {}
-    return "|".join(
-        str(values.get(key) or "")
-        for key in ("naics", "permit_type", "city", "state", "date_from", "date_to", "business_type", "area")
-    )
-
-
-def _seed_fields(view: dict) -> None:
-    values = view.get("filter_values") or {}
-    kind = values.get("naics") or values.get("permit_type") or ""
-    location = values.get("city") or values.get("area") or ""
-    st.session_state[FIELD_KIND] = kind
-    st.session_state[FIELD_LOCATION] = location
-    st.session_state[FIELD_FROM] = values.get("date_from") or ""
-    st.session_state[FIELD_TO] = values.get("date_to") or ""
-    st.session_state[FIELD_BUSINESS] = values.get("business_type") or ""
-    st.session_state[FIELD_CONTACT] = "Any"
-    st.session_state[FIELD_MAX] = str(SHOWN_ROWS)
-    codes = [item.strip() for item in str(values.get("naics") or "").split(",") if item.strip()]
-    st.session_state.industry_chips = [
-        {"code": code, "title": title_for(code) or code} for code in codes
-    ]
-    st.session_state.size_bands = labels_for(list(values.get("sizes") or []))
-    st.session_state.fields_for = _token(view)
-
-
-def _search_fields(profile, view: dict) -> None:
-    st.markdown("Change a field, then press Update results.")
-    kind_help = "A NAICS code such as 541512, or a permit type such as Building."
-    kind_example = (profile.search.naics[:1] or profile.search.permit_types[:1] or ["541512"])[0]
-    st.text_input(
-        "Industry or permit type",
-        key=FIELD_KIND,
-        placeholder=kind_example,
-        help=kind_help,
-    )
-    st.text_input(
-        "Location",
-        key=FIELD_LOCATION,
-        placeholder="Phoenix",
-        help="A city or area such as Phoenix.",
-    )
-    st.text_input(
-        "Date from",
-        key=FIELD_FROM,
-        placeholder="2026-05-24",
-        help="Example: 2026-05-24. Leave blank when the source has no date.",
-    )
-    st.text_input(
-        "Date to",
-        key=FIELD_TO,
-        placeholder="2026-11-20",
-        help="Example: 2026-11-20. Leave blank when the source has no date.",
-    )
-    st.text_input(
-        "Business size or type",
-        key=FIELD_BUSINESS,
-        placeholder="For Profit Organization",
-        help="Example: For Profit Organization.",
-    )
-    st.text_input(
-        "Contact needed",
-        key=FIELD_CONTACT,
-        placeholder="Named contact",
-        help="Type Named contact to keep only records with a person's name. Any keeps the full list.",
-    )
-    st.text_input(
-        "Max results",
-        key=FIELD_MAX,
-        placeholder="10",
-        help="Example: 10.",
-    )
-    st.button("Update results", key="update_results", on_click=_queue_update)
+        _run_search(root, profile, "")
 
 
 def _run_search(root: Path, profile, request: str) -> None:
     st.session_state.notice = ""
-    try:
-        chips = list(st.session_state.get("industry_chips") or [])
-        outcome = search(
-            profile,
-            request,
-            root,
-            chosen_naics=[item["code"] for item in chips] or None,
-            chosen_sizes=_chosen_sizes(),
-            known_size_only=bool(st.session_state.get("known_size_only")),
-            chosen_cities=_chosen_cities(profile),
-        )
-    except KillSwitchEngaged as exc:
-        st.session_state.notice = str(exc)
+    chips = list(st.session_state.get("industry_chips") or [])
+    typed = str(st.session_state.get("industry_query") or "").strip()
+    if not chips and typed:
+        matches = suggest(typed)
+        if not matches:
+            st.session_state.notice = "No industry matches that word. Try a broader word."
+            return
+        chips = [{"code": matches[0].code, "title": matches[0].title}]
+        st.session_state.industry_chips = chips
+        st.session_state.industry_suggestions_hidden = True
+    if kill_message(root):
+        st.session_state.notice = kill_message(root)
         return
-    except ProviderError as exc:
-        st.session_state.notice = (
-            f"{exc.role} {exc.provider}: {exc.line()}. switch to Offline or fix the account"
-        )
+    if not directory_available(repo_root()):
+        st.session_state.notice = "The company directory is missing from sample_data/az_companies."
         return
-    except ConfigError as exc:
-        st.session_state.notice = str(exc)
-        return
-    view = search_view(outcome)
-    view["profile_id"] = profile.profile_id
-    view["request"] = request
-    _limit_view(view, {"max_results": str(SHOWN_ROWS)})
+    chosen = set(_chosen_sizes() or [])
+    sizes = [(band.low, band.high) for band in BANDS if band.id in chosen]
+    previous_view = st.session_state.get("search_view") or {}
+    if not (st.session_state.get("pending_search_more") and previous_view.get("searched_at")):
+        moving = _load_current(root)
+        if moving:
+            add_shortlist(root, moving)
+        _save_current(root, [])
+    exclude = {row["prospect_id"] for row in _shortlist_rows(root, profile.profile_id)}
+    exclude |= {row["prospect_id"] for row in _current_rows(root, profile.profile_id)}
+    result = search_directory(
+        profile,
+        [item["code"] for item in chips],
+        sizes,
+        _chosen_cities(profile),
+        exclude,
+        root=repo_root(),
+    )
+    previous = st.session_state.get("search_view") or {}
+    more = bool(st.session_state.pop("pending_search_more", False)) and previous.get("searched_at")
+    industries = ", ".join(item["title"] for item in chips) or "All industries"
+    view = {
+        "searched_at": previous["searched_at"] if more else datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+        "search_label": previous.get("search_label") if more else industries,
+        "profile_id": profile.profile_id,
+        "request": request,
+        "sender_field": str(st.session_state.get("sender_field") or "").strip(),
+        "summary": result["summary"],
+        "rows": result["rows"],
+        "prospects": result["prospects"],
+        "remaining": result["remaining"],
+        "search_notice": result["search_notice"],
+    }
+    st.session_state.search_view = view
+    _log(
+        root,
+        "search",
+        "search",
+        "search",
+        "ok",
+        scrub(
+            "directory naics {naics} sizes {sizes} new {new} shown {shown}".format(
+                naics=",".join(item["code"] for item in chips),
+                sizes=",".join(sorted(chosen)) or "any",
+                new=result["total_new"],
+                shown=len(result["rows"]),
+            )
+        )[:240],
+    )
+    if result["rows"]:
+        st.session_state.pending_adds = [row["prospect_id"] for row in result["rows"]]
+        st.session_state.pending_add_mode = "current"
+        _consume_adds(root, profile.profile_id)
+
+
+def _set_result_page(view: dict, offset: int) -> None:
+    all_rows = list(view.get("_all_rows", view.get("rows") or []))
+    all_prospects = list(view.get("_all_prospects", view.get("prospects") or []))
+    if not st.session_state.get("show_no_named_contact", True):
+        all_rows = [row for row in all_rows if row.get("label") == "Named contact"]
+    total = len(all_rows)
+    offset = max(0, offset)
+    if total and offset >= total:
+        offset = ((total - 1) // SHOWN_ROWS) * SHOWN_ROWS
+    page = all_rows[offset : offset + SHOWN_ROWS]
+    visible_ids = {row.get("prospect_id") for row in page}
+    view["rows"] = page
+    view["prospects"] = [item for item in all_prospects if item.get("prospect_id") in visible_ids]
+    view["page_offset"] = offset
+    view["display_total"] = total
+    view["has_more"] = offset + SHOWN_ROWS < total
+    _limit_view(view, {})
+
+
+def _move_results_page(amount: int) -> None:
+    view = st.session_state.get("search_view") or {}
+    _set_result_page(view, int(view.get("page_offset") or 0) + amount)
     st.session_state.search_view = view
 
 
@@ -733,44 +805,53 @@ def _add_person(root: Path, profile_id: str, item: dict) -> None:
 
 
 def _shortlist_tab(profile_id: str) -> None:
-    st.markdown('<div class="step-card step-card-shortlist"><p>2 · Shortlist</p></div>', unsafe_allow_html=True)
-    st.header("Shortlist")
-    st.markdown("Businesses you added from Find. A refresh keeps this list.")
+    st.markdown('<div class="step-card step-card-shortlist"><p>2 · Previous Searches</p></div>', unsafe_allow_html=True)
+    st.header("Previous Searches")
     rows = _shortlist_rows(data_root(), profile_id)
     if not rows:
-        st.info("No businesses yet. On Find, press Add or Add all shown.")
-    else:
-        st.markdown(
-            markdown_table(
-                [
-                    {
-                        "Business": row.get("business") or "",
-                        "City": row.get("city") or "",
-                        "Industry": row.get("industry") or "",
-                        "Contact": " ".join(
-                            part for part in (row.get("contact_name"), row.get("contact_title")) if part
-                        ),
-                        "Channels": row.get("channels") or "",
-                        "Score": row.get("score") or 0,
-                        "Fit": row.get("fit") or "",
-                    }
-                    for row in rows
-                ],
-                ["Business", "City", "Industry", "Contact", "Channels", "Score", "Fit"],
-            )
+        st.info("No previous results.")
+        return
+    st.markdown(
+        markdown_table(
+            [
+                {
+                    "Searched": _when(row.get("searched_at") or ""),
+                    "Business": row.get("business") or "",
+                    "City": row.get("city") or "",
+                    "Industry": row.get("industry") or "",
+                    "Contact": " ".join(
+                        part for part in (row.get("contact_name"), row.get("contact_title")) if part
+                    ),
+                    "Channels": row.get("channels") or "",
+                    "Score": row.get("score") or 0,
+                    "Fit": row.get("fit") or "",
+                }
+                for row in rows
+            ],
+            ["Searched", "Business", "City", "Industry", "Contact", "Channels", "Score", "Fit"],
         )
+    )
+    left, right = st.columns(2)
+    with left:
         st.button("Next", key="next_shortlist", on_click=_go, args=("run",), type=_kind("shortlist", True))
+    with right:
+        st.button("Clear previous results", key="clear_previous", on_click=_clear_previous)
+
+
+def _clear_previous() -> None:
+    replace_shortlist(data_root(), [])
+    st.session_state.search_view = None
+    st.session_state.prospect = None
 
 
 def _run_tab(root: Path, profile_id: str, killed: str) -> None:
     st.markdown('<div class="step-card step-card-run"><p>3 · Draft</p></div>', unsafe_allow_html=True)
     st.header("Draft")
-    st.markdown("Pick a business and press Run. The steps below say what happened.")
-    rows = _shortlist_rows(root, profile_id)
+    rows = _draft_rows(root, profile_id, show_picker=True)
     choices = [row["prospect_id"] for row in rows]
     names = {row["prospect_id"]: row.get("business") or row["prospect_id"] for row in rows}
     if not choices:
-        st.info("No business is ready for a draft. Add one from Find.")
+        st.info("No businesses here yet. Run a search on Find.")
         st.button("Run", key="run", disabled=True, type=_kind("run", True))
         return
     if st.session_state.get("prospect") not in choices:
@@ -789,6 +870,43 @@ def _run_tab(root: Path, profile_id: str, killed: str) -> None:
     if st.session_state.last_run:
         _show_run(root, Path(st.session_state.last_run))
         st.button("Next", key="next_run", on_click=_go, args=("review",), type=_kind("run", True))
+
+
+def _search_batches(root: Path, profile_id: str) -> list[tuple[str, str, int]]:
+    """Each previous search: (time, industries, count), newest first."""
+    batches: dict[str, list] = {}
+    for row in _shortlist_rows(root, profile_id):
+        stamp = row.get("searched_at") or ""
+        entry = batches.setdefault(stamp, [row.get("search_label") or row.get("industry") or "", 0])
+        entry[1] += 1
+    return sorted(((stamp, label, count) for stamp, (label, count) in batches.items()), reverse=True)
+
+
+def _draft_rows(root: Path, profile_id: str, show_picker: bool = False) -> list[dict]:
+    """The current Find results by default. Previous searches can be picked by date."""
+    older = _search_batches(root, profile_id)
+    options = ["Current search"] + (["Previous searches"] if older else [])
+    if st.session_state.get("draft_source") not in options:
+        st.session_state.draft_source = "Current search"
+    stamps = [batch[0] for batch in older]
+    if stamps and st.session_state.get("draft_search") not in stamps:
+        st.session_state.draft_search = stamps[0]
+    if show_picker:
+        st.radio("Pull from", options, key="draft_source", horizontal=True)
+        if st.session_state.draft_source == "Previous searches":
+            labels = {stamp: f"{_when(stamp)} · {label} · {count} businesses" for stamp, label, count in older}
+            st.selectbox("Search date", stamps, format_func=lambda item: labels.get(item, item), key="draft_search")
+    if st.session_state.get("draft_source") == "Previous searches":
+        chosen = st.session_state.get("draft_search") or ""
+        return [row for row in _shortlist_rows(root, profile_id) if (row.get("searched_at") or "") == chosen]
+    return _current_rows(root, profile_id)
+
+
+def _when(stamp: str) -> str:
+    try:
+        return datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S.%f").strftime("%b %d, %Y %I:%M %p")
+    except ValueError:
+        return stamp or "Earlier search"
 
 
 def _show_run(root: Path, run_dir: Path) -> None:
@@ -852,7 +970,7 @@ def _start_run(root: Path, profile_id: str, prospect_id: str) -> None:
 
 
 def _lookup_prospect(profile, prospect_id: str):
-    for item in load_shortlist(data_root()):
+    for item in _load_current(data_root()) + load_shortlist(data_root()):
         if item.get("profile_id") == profile.profile_id and item.get("prospect_id") == prospect_id:
             return Prospect.model_validate(item["prospect"])
     raise LookupError(prospect_id)
@@ -861,7 +979,6 @@ def _lookup_prospect(profile, prospect_id: str):
 def _review_tab(root: Path, profile_id: str, killed: str) -> None:
     st.markdown('<div class="step-card step-card-review"><p>4 · Review</p></div>', unsafe_allow_html=True)
     st.header("Review")
-    st.markdown("Read the note. Type your name, acknowledge any findings, then approve, edit, or reject.")
     run_dir = _selected_run(root)
     if run_dir is None:
         st.info("Run a prospect first.")
@@ -885,30 +1002,19 @@ def _review_tab(root: Path, profile_id: str, killed: str) -> None:
             st.markdown(f'<span class="badge-warn">{finding["message"]}</span>', unsafe_allow_html=True)
     else:
         st.markdown("No findings.")
-    st.checkbox("Acknowledge findings", key="ack")
-    name = st.text_input(
-        "Approver",
-        key="approver",
-        placeholder="Ada",
-        help="Example: Ada",
-    )
+    if findings:
+        st.checkbox("I've read the findings", key="ack")
+    if not st.session_state.get("approver"):
+        st.session_state.approver = load_sender().get("name", "")
+    st.text_input("Your name (signs this decision)", key="approver", placeholder="Your name")
     fields = draft_fields(run_dir)
     if st.session_state.get("edit_run") != run_dir.name:
         st.session_state.edit_hook = fields["hook"]
         st.session_state.edit_bridge = fields["bridge"]
         st.session_state.edit_run = run_dir.name
-    hook = st.text_area(
-        "Hook",
-        key="edit_hook",
-        placeholder="You mentioned the backlog.",
-        help="Example: You mentioned the backlog.",
-    )
-    bridge = st.text_area(
-        "Bridge",
-        key="edit_bridge",
-        placeholder="A person reviews the work for {{organization}}:",
-        help="Example: A person reviews the work before it goes out.",
-    )
+    with st.expander("Edit the wording"):
+        st.text_area("Opening", key="edit_hook")
+        st.text_area("Middle", key="edit_bridge")
     disabled = bool(killed)
     prospect_id = st.session_state.get("prospect") or status["prospect_id"]
     approve, edit, reject = st.columns(3)
@@ -920,7 +1026,7 @@ def _review_tab(root: Path, profile_id: str, killed: str) -> None:
         on_click=_queue_decision,
         args=("APPROVED",),
     )
-    edit.button("Edit", key="edit", disabled=disabled, on_click=_queue_decision, args=("EDITED",))
+    edit.button("Approve with my edits", key="edit", disabled=disabled, on_click=_queue_decision, args=("EDITED",))
     reject.button("Reject", key="reject", disabled=disabled, on_click=_queue_decision, args=("REJECTED",))
     _show_decision()
     if st.session_state.decision and st.session_state.decision[0] == 0:
@@ -945,7 +1051,7 @@ def _consume_decision(root: Path, profile_id: str) -> None:
         profile_id,
         prospect_id,
         decision,
-        st.session_state.get("approver", ""),
+        str(st.session_state.get("approver") or "").strip() or load_sender().get("name", ""),
         st.session_state.get("edit_hook", ""),
         st.session_state.get("edit_bridge", ""),
     )
@@ -980,13 +1086,16 @@ def _selected_run(root: Path) -> Path | None:
     prospect_id = st.session_state.get("prospect")
     last = st.session_state.get("last_run") or ""
     if last and prospect_id and Path(last).name.startswith(prospect_id + "-"):
-        return Path(last)
-    if not prospect_id:
+        found = Path(last)
+    elif not prospect_id:
         return None
-    try:
-        return latest_run(root, prospect_id)
-    except FileNotFoundError:
-        return None
+    else:
+        try:
+            found = latest_run(root, prospect_id)
+        except FileNotFoundError:
+            return None
+    # A run that stopped before it wrote its status has nothing to review.
+    return found if (found / "status.json").is_file() else None
 
 
 def _outbox_tab(root: Path, killed: str) -> None:
@@ -1186,28 +1295,32 @@ def _event_sentence(row: dict) -> str:
     return "Saved a step"
 
 
-def _funnel_tab(profile_id: str) -> None:
-    st.header("Funnel")
-    st.markdown("These are the past results for this business.")
-    stats = funnel_view(profile_id)
-    labels = {
-        "sent": "Sent",
-        "replied": "Replied",
-        "meeting": "Meetings",
-        "won": "Won",
-        "won_value": "Won value",
-        "reply_rate": "Reply rate",
-        "meeting_rate": "Meeting rate",
-        "win_rate": "Win rate",
-        "avg_deal": "Average deal",
-    }
-    for key, value in stats.items():
-        st.markdown(f"{labels.get(key, key)}: {value}")
+def _save_sender() -> None:
+    save_sender(
+        {
+            field: st.session_state.get(f"sender_{field}", "")
+            for field in ("name", "company", "phone", "postal_address")
+        }
+    )
+    st.session_state.sender_saved = True
 
 
 def _settings_tab(root: Path) -> None:
     st.header("Settings")
-    st.markdown("Check keys does not show a key.")
+    st.subheader("Your details")
+    saved = load_sender()
+    for field, label in (
+        ("name", "Your name"),
+        ("company", "Your company"),
+        ("phone", "Your phone"),
+        ("postal_address", "Your mailing address"),
+    ):
+        st.session_state.setdefault(f"sender_{field}", saved.get(field, ""))
+        st.text_input(label, key=f"sender_{field}")
+    st.button("Save my details", key="save_sender", on_click=_save_sender)
+    if st.session_state.pop("sender_saved", False):
+        st.success("Saved. New drafts will be signed with these details.")
+    st.subheader("Connections")
     labels = {
         "tailor": "Tailor the pitch",
         "drafter": "Write the email",

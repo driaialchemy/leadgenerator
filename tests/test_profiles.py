@@ -76,7 +76,7 @@ def test_pipeline_config_loads():
     assert config.evaluator_pass_score == 4
     assert config.exclusions.do_not_contact_is is True
     assert config.exclusions.consent_status_is == ["none"]
-    assert config.max_ai_words == 90
+    assert config.max_ai_words == 110
     assert config.max_claims == 2
 
 

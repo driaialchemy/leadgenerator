@@ -15,7 +15,7 @@ from leadgen.paths import repo_root
 from leadgen.schemas import Profile
 from leadgen.sources.records import SearchFilter
 
-CUTOFF = 0.82
+CUTOFF = 0.62
 LIVE_SIZE_NOTE = (
     "Public records don't list headcount, so the Market size card is the size view."
 )
@@ -35,9 +35,8 @@ class Band:
 
 BANDS = (
     Band("1-49", "1–49", 1, 49, ("212", "220", "230", "241")),
-    Band("50-249", "50–249", 50, 249, ("242", "251")),
-    Band("250-499", "250–499", 250, 499, ("252",)),
-    Band("500-999", "500–999", 500, 999, ("254",)),
+    Band("50-99", "50–99", 50, 99, ("242",)),
+    Band("100-250", "100–250", 100, 250, ("251",)),
 )
 BAND_IDS = tuple(band.id for band in BANDS)
 _CENSUS_TO_BAND = {code: band.id for band in BANDS for code in band.census}
@@ -67,6 +66,22 @@ def title_for(code: str) -> str:
     return ""
 
 
+def sic_options_for(naics_codes: list[str]) -> list[tuple[str, str]]:
+    """Return legacy SEC SIC classifications explicitly crosswalked from NAICS."""
+    path = repo_root() / "config" / "naics_sic.yaml"
+    if not path.is_file():
+        return []
+    mapping = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    found: list[tuple[str, str]] = []
+    for code in naics_codes:
+        entries = mapping.get(str(code), mapping.get(int(code), []) if str(code).isdigit() else [])
+        for item in entries:
+            pair = (str(item.get("code", "")), str(item.get("title", "")))
+            if pair[0] and pair[1] and pair not in found:
+                found.append(pair)
+    return found
+
+
 def labels_for(band_ids: list[str]) -> list[str]:
     chosen = set(band_ids)
     return [band.label for band in BANDS if band.id in chosen]
@@ -82,8 +97,56 @@ def ids_for_labels(labels: list[str]) -> list[str]:
     return found
 
 
+def codes_for_request(text: str) -> list[str]:
+    """Confident official codes for a typed request. An unsure match returns nothing."""
+    return [match.code for match in suggest(text) if match.confident]
+
+
+def terms_for(codes: list[str]) -> list[str]:
+    """Words that identify those industries. Used to keep a permit for the business asked for."""
+    wanted = {str(code).strip() for code in codes if str(code).strip()}
+    if not wanted:
+        return []
+    terms: list[str] = []
+    path = repo_root() / "config" / "naics_synonyms.yaml"
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    for phrase, code in loaded.items():
+        flat = _flat(str(phrase))
+        if str(code).strip() in wanted and flat and flat not in terms:
+            terms.append(flat)
+    for code, title in load_catalog():
+        if code not in wanted:
+            continue
+        for word in _words(title):
+            if len(word) < 5 or word in _GENERIC or word in terms:
+                continue
+            terms.append(word)
+    return terms
+
+
+_GENERIC = frozenset(
+    "service services limited except casino other including nonalcoholic commercial office offices".split()
+)
+
+
 def suggest(text: str, limit: int = 5) -> list[Match]:
-    """Up to five close titles, or three broader sector titles when nothing is close."""
+    """Return exact, fuzzy, or broader NAICS matches for a typed industry or code."""
+    code_query = str(text or "").strip()
+    if code_query.isdigit() and 2 <= len(code_query) <= 6:
+        rows = load_catalog()
+        exact = [(code, title) for code, title in rows if code == code_query]
+        if exact:
+            return [Match(exact[0][0], exact[0][1], True)]
+        prefix = [(code, title) for code, title in rows if code.startswith(code_query)]
+        if prefix:
+            return [Match(code, title, True) for code, title in prefix[:limit]]
+        near = sorted(
+            rows,
+            key=lambda item: (-SequenceMatcher(None, code_query, item[0]).ratio(), item[0]),
+        )
+        close = [item for item in near if SequenceMatcher(None, code_query, item[0]).ratio() >= CUTOFF]
+        if close:
+            return [Match(code, title, True) for code, title in close[:limit]]
     words = _words(text)
     if not words:
         return []
@@ -95,12 +158,14 @@ def suggest(text: str, limit: int = 5) -> list[Match]:
     if not scored:
         return []
     best = max(scored.values())
-    if best >= CUTOFF:
+    # Only show candidates with a meaningful lexical relationship. The user
+    # chooses among near matches; unrelated low-scoring codes are not useful.
+    if best >= 0.48:
         ranked = sorted(scored, key=lambda code: (-scored[code], code))
         return [
-            Match(code, title_for(code) or code, True)
+            Match(code, title_for(code) or code, scored[code] >= CUTOFF)
             for code in ranked
-            if scored[code] >= CUTOFF and title_for(code)
+            if scored[code] >= max(0.48, best - 0.18) and title_for(code)
         ][:limit]
     sectors = [code for code in scored if _is_sector(code)]
     ranked = sorted(sectors, key=lambda code: (-scored[code], code))[:3]
@@ -171,7 +236,7 @@ def load_catalog() -> list[tuple[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
             code = str(row.get("code") or "").strip()
-            title = str(row.get("title") or "").strip()
+            title = str(row.get("title") or "").strip().removesuffix("T").strip()
             if code and title:
                 rows.append((code, title))
     load_catalog._rows = rows
@@ -226,7 +291,9 @@ def _phrases() -> list[tuple[str, str]]:
     path = repo_root() / "config" / "naics_synonyms.yaml"
     loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     for phrase, code in loaded.items():
-        rows.append((str(code).strip(), _flat(str(phrase))))
+        entry = (str(code).strip(), _flat(str(phrase)))
+        if entry not in rows:
+            rows.append(entry)
     _phrases._rows = rows
     return rows
 
@@ -256,17 +323,20 @@ def _score(query: str, query_words: list[str], phrase: str) -> float:
 
 
 def _word_score(query_words: list[str], phrase_words: list[str]) -> float:
-    """A query word that sits inside a title word is a match."""
-    best = 0.0
-    for word in query_words:
-        if len(word) < 4:
-            continue
-        for phrase_word in phrase_words:
-            if word in phrase_word or phrase_word in word:
-                best = max(best, 0.9)
-            else:
-                best = max(best, SequenceMatcher(None, word, phrase_word).ratio())
-    return best
+    """Compare both query coverage and title coverage to avoid one-word false matches."""
+    if not query_words or not phrase_words:
+        return 0.0
+
+    def similarity(left: str, right: str) -> float:
+        if left == right:
+            return 1.0
+        if min(len(left), len(right)) >= 4 and (left in right or right in left):
+            return 0.9
+        return SequenceMatcher(None, left, right).ratio()
+
+    query_coverage = sum(max(similarity(word, candidate) for candidate in phrase_words) for word in query_words) / len(query_words)
+    title_coverage = sum(max(similarity(word, candidate) for candidate in query_words) for word in phrase_words) / len(phrase_words)
+    return 2 * query_coverage * title_coverage / (query_coverage + title_coverage) if query_coverage + title_coverage else 0.0
 
 
 def _words(text: str) -> list[str]:

@@ -1,0 +1,53 @@
+file,field,description
+companies.csv,company_id,Unique ID (AZC-00001…)
+companies.csv,company_name,Business name as customers know it
+companies.csv,legal_name,Name with legal suffix
+companies.csv,naics_code,6-digit NAICS industry code
+companies.csv,naics_title,NAICS industry title
+companies.csv,industry_group,"Broad group (Food & Hospitality, Health, …)"
+companies.csv,year_founded,
+companies.csv,legal_structure,"LLC, S-Corp, Corporation, Partnership, Sole proprietorship, Nonprofit"
+companies.csv,ownership_type,"Independent, Local group, Regional chain, National chain franchise"
+companies.csv,employees,"Headcount, 1–250"
+companies.csv,size_band,"1-49, 50-99, 100-250"
+companies.csv,locations,Number of locations
+companies.csv,square_feet,Total space
+companies.csv,building_age_years,Age of main building
+companies.csv,street_address / city / state / zip / county,Real AZ street names and ZIP codes; invented house numbers
+companies.csv,main_phone,Fiction-reserved 555-01xx number with real area code
+companies.csv,website,https://www.<name>.example (reserved domain; never resolves)
+companies.csv,general_email,info@/hello@ … .example; ~5% blank
+companies.csv,annual_revenue,USD; employees × industry revenue-per-employee benchmark with variation
+companies.csv,annual_expenses,USD
+companies.csv,net_income,revenue − expenses; ~8% negative
+companies.csv,profit_margin_pct,net_income ÷ revenue × 100
+companies.csv,revenue_growth_pct,Last-year growth
+companies.csv,open_job_postings,Current openings
+companies.csv,recent_event / recent_event_date,"New location, remodel, new owner, new service line, award, … or None"
+companies.csv,website_platform / website_last_updated,"WordPress, Wix, Shopify, Custom, None …"
+companies.csv,has_facebook/instagram/linkedin/tiktok + followers,Social presence
+companies.csv,has_google_business_profile,Yes/No
+companies.csv,google_rating / google_review_count,Review profile
+companies.csv,est_marketing_budget / est_it_budget / est_facilities_budget,"USD per year, estimated"
+companies.csv,crm_system / pos_system / booking_system,"Tools in use, or None"
+companies.csv,online_booking_or_ordering,Yes/No
+companies.csv,pain_points,"1–3 stated challenges, semicolon-separated"
+companies.csv,lead_status,"New, Contacted, Replied, Quoted, Customer, Lost"
+companies.csv,do_not_contact,Yes on ~4%; never contact these
+companies.csv,last_verified,Date record last checked; ~10% older than one year (stale)
+companies.csv,record_note,Messy CRM-style note; some flag possible duplicates or conflict with fields
+contacts.csv,contact_id,Unique ID (CON-000001…)
+contacts.csv,company_id / company_name,Link to companies.csv
+contacts.csv,first_name / last_name / title,Fictional person; title fits the industry
+contacts.csv,contact_role,"Owner / decision-maker, Operations, Office / marketing (3 per company)"
+contacts.csv,decision_role,"Final say, Influencer, Gatekeeper"
+contacts.csv,email,first.last@<company>.example; ~5% blank
+contacts.csv,direct_phone,555-01xx with extension
+contacts.csv,mobile_phone,555-01xx; ~30% blank
+contacts.csv,preferred_contact,"Email, Phone, Text, LinkedIn"
+contacts.csv,years_at_company,
+contacts.csv,email_opt_in,Yes/No; always No when company is do-not-contact
+contacts.csv,last_contacted,Blank when lead_status is New
+contacts.csv,headline,LinkedIn-style one-liner
+industries.csv,(all),"50 industries with NAICS, benchmarks, typical titles and pain points"
+cities.csv,(all),"6 cities with county, area code, share, ZIP codes"

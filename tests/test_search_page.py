@@ -10,30 +10,30 @@ from leadgen.paths import repo_root
 APP = repo_root() / "src" / "leadgen" / "app.py"
 
 
-def test_example_runs_once_and_the_kill_switch_disables_search(monkeypatch, tmp_path):
+def test_search_runs_once_and_the_kill_switch_disables_search(monkeypatch, tmp_path):
     monkeypatch.setenv("LEADGEN_DATA_ROOT", str(tmp_path))
     monkeypatch.delenv("LEADGEN_KILL_SWITCH", raising=False)
     at = AppTest.from_file(str(APP))
     at.run(timeout=60)
     assert list(at.exception) == []
     assert "Search" in _text(at)
-    at.button(key="example_0").click().run(timeout=60)
+    at.text_input(key="industry_query").set_value("restaurants").run(timeout=60)
+    at.button(key="suggest_0").click().run(timeout=60)
+    at.button(key="search").click().run(timeout=60)
     assert list(at.exception) == []
     text = _text(at)
-    assert "7 businesses found · 3 with a named contact · showing 6 · 1 held back" in text
-    assert "Stale record" in text
-    assert "Named contact" in text
-    sources = _count(tmp_path, "source_call")
-    assert sources > 0
+    assert "new businesses found" in text
+    assert "Named contact" in text or "Owner" in text
+    searches = _count(tmp_path, "search")
+    assert searches == 1
     at.run(timeout=60)
-    assert _count(tmp_path, "source_call") == sources
+    assert _count(tmp_path, "search") == searches
 
     monkeypatch.setenv("LEADGEN_KILL_SWITCH", "1")
     blocked = AppTest.from_file(str(APP))
     blocked.run(timeout=60)
     assert list(blocked.exception) == []
     assert blocked.button(key="search").disabled
-    assert blocked.button(key="example_0").disabled
 
 
 def _text(at) -> str:

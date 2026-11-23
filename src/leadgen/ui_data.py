@@ -193,7 +193,7 @@ def summary_tiles(root: Path, profile_id: str, shown: int) -> list[dict]:
     sent = len([row for row in outbox_rows(root) if _run_belongs(runs / Path(row["file"]).stem, profile_id)])
     return [
         {"label": "Businesses found", "value": shown, "tone": "found"},
-        {"label": "On shortlist", "value": shortlisted, "tone": "shortlist"},
+        {"label": "Previous searches", "value": shortlisted, "tone": "shortlist"},
         {"label": "Drafts waiting", "value": waiting, "tone": "waiting"},
         {"label": "Approved", "value": approved, "tone": "approved"},
         {"label": "Sent", "value": sent, "tone": "sent"},
@@ -289,6 +289,7 @@ def search_view(outcome) -> dict:
                 "business": hit.business_name,
                 "city": hit.record.city,
                 "industry": _industry_cell(hit.record, code),
+                "naics": ", ".join(hit.record.naics),
                 "project": _clip(hit.record.project, 90),
                 "permits": hit.record.permit_count or "",
                 "latest": _latest_text(hit.record),
@@ -375,9 +376,9 @@ def _why(hit) -> str:
     record = hit.record
     parts = []
     if record.plumbing_tie == "strong":
-        parts.append("permit points at plumbing work")
+        parts.append("permit matches the selected criteria")
     elif record.plumbing_tie == "some":
-        parts.append("commercial building permit")
+        parts.append("public permit record")
     if record.permit_count > 1:
         parts.append(f"{record.permit_count} permits")
     if record.contact_name.strip():
@@ -607,8 +608,7 @@ def _date_ok(value: str) -> bool:
 
 
 def _limit_view(view: dict, edits: dict) -> None:
-    contact = str(edits.get("contact") or "").casefold()
-    if "named" in contact:
+    if not bool(edits.get("show_without_contact", True)):
         view["rows"] = [row for row in view["rows"] if row.get("label") == "Named contact"]
         kept = {row["prospect_id"] for row in view["rows"]}
         view["prospects"] = [item for item in view["prospects"] if item["prospect_id"] in kept]

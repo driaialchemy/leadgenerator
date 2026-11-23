@@ -1,8 +1,8 @@
 """Turn city permit rows into businesses. Plain Python. No network and no model.
 
-A permit row is not a business. This module decides which rows point at commercial
-plumbing work, which text is a business or site name, and which rows are the same
-business. The word lists and bands are in the profile YAML under search.permits.
+A permit row is not a business. This module decides which rows point at a relevant
+business or site and which rows are the same business. Word lists and bands are in
+the profile YAML under search.permits.
 """
 
 import re
@@ -77,11 +77,11 @@ def valid_site_name(text: str, rules: PermitRules) -> bool:
 
 
 def relevance(record: PublicRecord, rules: PermitRules) -> str:
-    """strong, some, or empty when the permit does not point at commercial plumbing work.
+    """Return strong, some, or empty according to the profile's selected criteria.
 
     The work is judged from the permit type and the work description. The site name only says who
-    the customer is: a hotel or a care home upgrades a plumbing-type permit but never rescues a sign or
-    a fire alarm.
+    the customer is: the business name identifies the prospect, while work details
+    determine whether a permit matches the profile's selected criteria.
     """
     if not (rules.strong_words or rules.include_words or rules.exclude_words):
         return "some"  # a profile with no permit word lists keeps every permit
@@ -134,14 +134,40 @@ class PermitStats:
         noun = "record" if self.total == 1 else "records"
         parts = [f"{label}: {self.total} {noun}"]
         if self.excluded:
-            parts.append(f"{self.excluded} left out, not commercial plumbing work")
+            parts.append(f"{self.excluded} left out, outside the selected permit criteria")
         if self.dropped:
             parts.append(f"{self.dropped} dropped, no business name")
         return " · ".join(parts)
 
 
+def matches_business(record: PublicRecord, terms: list[str]) -> bool:
+    """True when the permit names the kind of business that was asked for."""
+    if not terms:
+        return True
+    text = " ".join(
+        part
+        for part in (record.business_name, record.site_name, record.owner, record.project)
+        if part
+    )
+    return words_in(text, terms)
+
+
+def keyword_clause(fields: list[str], keywords: list[str]) -> str:
+    """An allowlisted name match. A keyword with anything but letters, numbers, or spaces is dropped."""
+    parts = []
+    for word in keywords:
+        if not word or any(not (character.isascii() and (character.isalnum() or character == " ")) for character in word):
+            continue
+        safe = word.replace("'", "''")
+        for field in fields:
+            parts.append(f"UPPER({field}) LIKE UPPER('%{safe}%')")
+    if not parts:
+        return ""
+    return "(" + " OR ".join(parts) + ")"
+
+
 def refine(records: list[PublicRecord], rules: PermitRules) -> tuple[list[PublicRecord], PermitStats]:
-    """Keep plumbing-relevant rows that have a business name. Count what was left out."""
+    """Keep rows that match profile criteria and have a business name."""
     stats = PermitStats()
     stats.total = len(records)
     kept = []

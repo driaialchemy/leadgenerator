@@ -36,7 +36,7 @@ Launch it from this folder:
 powershell -ExecutionPolicy Bypass -File run_app.ps1
 ```
 
-The page title is Acme Plumbing. Five steps sit under it: Find, Shortlist, Draft, Review, and Send. The step you are on is blue. A finished step is green. A step that is not ready yet is gray, and it tells you why. Each step has one main button. Find says Search until a list comes back, then Next. Logbook, Funnel, and Settings are under More in the sidebar.
+The page title is Acme Plumbing. Five steps sit under it: Find, Shortlist, Draft, Review, and Send. The step you are on is red. A finished step is green. A step that is not ready yet is gray, and it tells you why. Each step has one main button. Find says Search until a list comes back, then Next. Logbook, Funnel, and Settings are under More in the sidebar.
 
 Five counts sit under the title: businesses found, businesses on the shortlist, drafts waiting, notes you approved, and files saved. Live is the mode on screen. A red notice appears in the sidebar only when the kill switch is on.
 

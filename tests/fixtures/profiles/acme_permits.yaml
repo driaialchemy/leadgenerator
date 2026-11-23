@@ -1,0 +1,279 @@
+# Acme Plumbing. Sender name, postal address, and phone are placeholders.
+profile_id: acme_plumbing
+menu_order: 0
+display_name: Acme Plumbing
+sender:
+  name: Alex Rivera
+  company: Acme Plumbing
+  postal_address: "100 N Central Ave, Phoenix, AZ 85004"
+  phone: "(602) 555-0148"
+  placeholder_fields:
+    - name
+    - postal_address
+    - phone
+brand:
+  service_line: "Greater Phoenix & Tucson · $150/hr plus parts"
+  hero_title: "Acme Plumbing"
+  hero_subtitle: "Find and reach commercial customers"
+opt_out_line: "If you would rather not hear from us, reply stop and we will not write again."
+attributes:
+  in_service_area: str
+  named_contact: str
+  recent_permit: str
+  hiring_fit: str
+  permit_recency: str
+  plumbing_tie: str
+  permit_count: str
+scoring_rules:
+  - field: in_service_area
+    type: in
+    values: ["yes"]
+    points: 20
+  - field: named_contact
+    type: in
+    values: ["yes"]
+    points: 15
+  - field: permit_recency
+    type: grade
+    points: 25
+    grades: {d90: 25, d180: 18, d365: 10, older: 3}
+  - field: plumbing_tie
+    type: grade
+    points: 25
+    grades: {strong: 25, some: 12}
+  - field: permit_count
+    type: grade
+    points: 10
+    grades: {many: 10, few: 6, one: 2}
+  - field: hiring_fit
+    type: in
+    values: ["yes"]
+    points: 5
+approved_claims:
+  RATE-01: "$150 per hour plus parts"
+approved_subjects:
+  SUB-01: "A note for {{organization}}"
+cta: Reply to this note and we will set a time to walk the property.
+buyer_persona: "You manage a property or a business in the service area. You reply when the note is specific and the price is plain."
+note_checks:
+  - id: price_question
+    phrases: [discount, financing, quote]
+    message: "The notes ask about price. A person answers this."
+banned_phrases:
+  - discount
+  - "% off"
+  - free
+  - guarantee
+  - risk-free
+  - limited time
+  - act now
+fit_naics:
+  - "722511"
+  - "722513"
+  - "722515"
+  - "721110"
+  - "531311"
+  - "531312"
+  - "621111"
+  - "621210"
+  - "541110"
+  - "541211"
+  - "561110"
+search:
+  examples:
+    - Restaurants in Phoenix
+    - Hotels in Tucson
+  naics: []
+  states:
+    - AZ
+  cities:
+    - Phoenix
+    - Mesa
+    - Chandler
+    - Scottsdale
+    - Glendale
+    - Gilbert
+    - Tempe
+    - Peoria
+    - Surprise
+    - Tucson
+    - "Oro Valley"
+    - Marana
+    - Sahuarita
+  business_types: []
+  permit_types:
+    - Building
+  areas: []
+  county:
+    name: Maricopa
+    state: AZ
+    state_fips: "04"
+    county_fips: "013"
+  metros:
+    - name: Greater Phoenix
+      county_name: Maricopa
+      state: AZ
+      state_fips: "04"
+      county_fips: "013"
+      cities:
+        - Phoenix
+        - Mesa
+        - Chandler
+        - Scottsdale
+        - Glendale
+        - Gilbert
+        - Tempe
+        - Peoria
+        - Surprise
+    - name: Greater Tucson
+      county_name: Pima
+      state: AZ
+      state_fips: "04"
+      county_fips: "019"
+      cities:
+        - Tucson
+        - "Oro Valley"
+        - Marana
+        - Sahuarita
+  sources:
+    - id: sam
+      freshness_days: 400
+      role: search
+    - id: phoenix_permits
+      freshness_days: 365
+      role: search
+    - id: tucson_permits
+      freshness_days: 365
+      role: search
+    - id: edgar
+      freshness_days: 180
+      role: enrich
+  permits:
+    business_order: [owner, site_name, contractor]
+    many_permits: 3
+    recency_days: {d90: 90, d180: 180, d365: 365}
+    strong_words:
+      - tenant improvement
+      - ti
+      - plumbing
+      - water heater
+      - backflow
+      - grease
+      - kitchen
+      - restroom
+    customer_words:
+      - restaurant
+      - health care
+      - healthcare
+      - care facility
+      - assisted living
+      - hospital
+      - clinic
+      - medical
+      - hotel
+      - motel
+    include_words:
+      - building
+      - remodel
+      - renovation
+      - addition
+      - alteration
+      - sewer
+      - water service
+    exclude_words:
+      - sidewalk
+      - sign
+      - fence
+      - retaining wall
+      - gate
+      - card reader
+      - access control
+      - egress
+      - fire alarm
+      - kitchen hood
+      - sprinkler
+      - fireline
+      - electrical
+      - solar
+      - photovoltaic
+      - pool
+      - demolition
+      - demo
+      - paving
+      - pavement
+      - grading
+      - manhole
+      - model
+      - crane
+      - parking
+    description_words:
+      - install
+      - installation
+      - replace
+      - replacement
+      - repair
+      - relocate
+      - relocation
+      - remove
+      - removal
+      - modify
+      - modification
+      - upgrade
+      - modernize
+      - restoration
+      - paving
+      - pavement
+      - grading
+      - drainage
+      - offsite
+      - demolition
+      - construction
+      - addition
+      - remodel
+      - receptacle
+      - sidewalk
+      - hydrant
+      - fireline
+      - concrete
+      - tie in
+      - tie-in
+      - revision
+      - permit
+      - inspection
+      - w/
+    street_words: [st, street, ave, avenue, rd, road, blvd, dr, drive, ln, lane, way, pkwy, hwy, cir, ct, pl, sv]
+    company_words:
+      - inc
+      - llc
+      - llp
+      - lp
+      - ltd
+      - co
+      - corp
+      - corporation
+      - company
+      - contractors
+      - contracting
+      - construction
+      - fire
+      - security
+      - systems
+      - services
+      - solutions
+      - group
+      - international
+      - development
+      - team
+      - pipeline
+      - concrete
+      - paving
+      - asphalt
+      - elevator
+      - protection
+      - building
+      - electric
+      - plumbing
+      - underground
+      - resources
+      - safety
+      - church

@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-11-21 — General lead-finder profile and session activity
+
+The app presents as AI Lead Finder. The legacy profile filename and id stay unchanged to preserve references in fixtures and stored records. The profile's sender identity is placeholder-only until supplied by the owner. The permit source uses no trade-specific include or exclude criteria.
+
+Activity tiles use a fresh `%LOCALAPPDATA%\AI Lead Finder\sessions\<timestamp>` root for each `run_app.ps1` launch. This starts a new visible work session while retaining prior data. Kill-switch checks always include the repo root and the selected data root.
+
+The Find workflow keeps sender occupation/service and recipient company industry separate. The selected company result's industry and the user-entered sender field guide tailored writing. This context does not authorize invented facts or needs about the recipient. Funnel analytics are not shown in the app navigation.
+
+## 2026-11-21 — NAICS-only target search
+
+The user selects the recipient industry through a fuzzy NAICS picker. Live company results must include one of the selected NAICS codes; unknown classifications are excluded to avoid unrelated businesses. The UI shows 25 results at a time, supports paging, and bypasses the source cache on each new Search action. A repeated search advances to unseen matches when the source returns them.
+
+The live profile enables SAM.gov only. SEC EDGAR and Phoenix/Tucson permit feeds are not part of this company-finding workflow. The results page suppresses low-level source diagnostics; it states only that live records are unavailable if the configured company source cannot return data. SAM access still requires its configured API key.
+
+The sender occupation/service field is arbitrary free text. Example industry synonyms are search convenience only and do not limit the roles a user can enter for draft perspective.
+
 ## 2026-11-18 — Stack
 
 Python 3.11, Streamlit, and Pydantic v2. PyYAML for profiles and the pipeline file. pytest for tests. Streamlit and the Anthropic client are listed now and unused until later milestones.
@@ -232,3 +248,14 @@ Scoring, 100 points, all in the YAML: service area 20, named contact 15, latest 
 The translator failed on live output because the model sent `null` for empty text values and a bare string where a list belongs. `SearchFilter` now accepts both. Two captured replies are in `tests/fixtures/translator/`.
 
 The summary line is plain words. The size breakdown shows only when a size was chosen and some record carries a size. City permits carry none.
+# 2026-11-21 — NAICS and SIC selection
+
+- Industry suggestions use the full 2022 U.S. Census NAICS structure instead of a short hand-maintained sample catalog, so users can search across industries. Near matches are shown for explicit user choice, while weak unrelated matches are suppressed.
+- A selected NAICS may show a related legacy SEC SIC classification when a crosswalk entry exists. SIC is descriptive legacy metadata; live company search remains NAICS-driven.
+
+# 2026-11-21 — Visible search criteria
+
+- After a suggestion is chosen, preserve the typed phrase but collapse the suggestion list and display the selected NAICS code as the active search criterion. This keeps the search request visible and avoids confusing the user with persistent suggestion buttons.
+- Remove Census change-indicator markers from displayed NAICS titles. Show the related SIC selector only when there is an explicit crosswalk entry, and explain when the selected NAICS lacks one.
+- Blend Streamlit's otherwise empty header strip into the page surface so it does not appear as an unexplained black bar.
+

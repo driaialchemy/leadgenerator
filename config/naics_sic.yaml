@@ -1,0 +1,57 @@
+# Legacy SEC SIC classifications associated with selected 2022 NAICS codes.
+# SIC is an older classification; relationships are one-to-many and approximate.
+713940:
+  - code: "7991"
+    title: "Physical Fitness Facilities"
+531110:
+  - code: "6513"
+    title: "Operators of Apartment Buildings"
+531:
+  - code: "6512"
+    title: "Operators of Nonresidential Buildings"
+  - code: "6513"
+    title: "Operators of Apartment Buildings"
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+  - code: "6552"
+    title: "Land Subdividers and Developers, Except Cemeteries"
+  - code: "6798"
+    title: "Real Estate Investment Trusts"
+53:
+  - code: "6512"
+    title: "Operators of Nonresidential Buildings"
+  - code: "6513"
+    title: "Operators of Apartment Buildings"
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+  - code: "6552"
+    title: "Land Subdividers and Developers, Except Cemeteries"
+  - code: "6798"
+    title: "Real Estate Investment Trusts"
+531120:
+  - code: "6512"
+    title: "Operators of Nonresidential Buildings"
+531130:
+  - code: "4225"
+    title: "General Warehousing and Storage"
+531190:
+  - code: "6519"
+    title: "Lessors of Real Property, Not Elsewhere Classified"
+531210:
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+531311:
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+531312:
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+531320:
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+531390:
+  - code: "6531"
+    title: "Real Estate Agents and Managers"
+522292:
+  - code: "6162"
+    title: "Mortgage Bankers and Loan Correspondents"

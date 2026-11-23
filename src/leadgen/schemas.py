@@ -432,6 +432,7 @@ EventType = Literal[
     "add_to_pipeline",
     "mail_draft",
     "mail_send",
+    "clear_everything",
 ]
 
 

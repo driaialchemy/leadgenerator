@@ -16,7 +16,9 @@ TODAY = date(2026, 11, 21)
 
 
 def _profile():
-    return load_profile("acme_plumbing")
+    # The permit rules moved out of the live profile when the directory replaced public-records search.
+    # This frozen copy keeps the permit code covered.
+    return load_profile("acme_plumbing", FIX / "profiles" / "acme_permits.yaml")
 
 
 def _phoenix():
@@ -52,7 +54,7 @@ def test_counts_for_excluded_and_dropped_rows_are_reported():
     _kept, phoenix = _phoenix()
     assert (phoenix.total, phoenix.excluded, phoenix.dropped, phoenix.kept) == (7, 2, 1, 4)
     assert phoenix.line("Phoenix permits") == (
-        "Phoenix permits: 7 records \u00b7 2 left out, not commercial plumbing work"
+        "Phoenix permits: 7 records \u00b7 2 left out, outside the selected permit criteria"
         " \u00b7 1 dropped, no business name"
     )
     _kept, tucson = _tucson()
@@ -119,25 +121,22 @@ def test_contact_is_a_person_only():
     assert merged["Valencia Auto Parts 10780"].contact_name == ""
 
 
-def test_scores_differ_and_match_hand_computed_values():
-    profile = _profile()
+def test_permit_businesses_score_on_area_contact_and_industry_only():
+    # Scoring is code only and now rests on three facts: in the service area (20),
+    # a named contact (20), and a matched industry code (60). Permit rows carry no industry code.
+    profile = load_profile("acme_plumbing")
     pipeline = load_pipeline_config()
     assert sum(rule.points for rule in profile.scoring_rules) == 100
-    # area 20, contact 15, recency 25/18/10/3, plumbing tie 25/12, count 10/6/2.
-    expected = {
-        "SUNSET HILLS ASSISTED LIVING": 87,  # 20 + 15 + 25 (11 days) + 25 strong + 2 one permit
-        "Valley Fire+Security": 76,  # 20 + 0 + 25 (6 days) + 25 strong + 6 two permits
-        "Desert Pipe Works Inc": 65,  # 20 + 0 + 18 (112 days) + 25 strong + 2
-        "Fontana Storage Hub": 63,  # 20 + 0 + 25 (20 days) + 12 some + 6
-        "Valencia Auto Parts 10780": 59,  # 20 + 0 + 25 (2 days) + 12 + 2
-        "Concert Place Performance Center": 44,  # 20 + 0 + 10 (195 days) + 12 + 2
-    }
     got = {}
     for name, record in _merged().items():
-        prospect = prospect_from_record(profile, record, TODAY)
+        prospect = prospect_from_record(_profile(), record, TODAY)
+        prospect = prospect.model_copy(
+            update={"attributes": {k: v for k, v in prospect.attributes.items() if k in profile.attributes}}
+        )
         got[name] = score(prospect, profile, pipeline).total
-    assert got == expected
-    assert len(set(got.values())) == len(got)
+    assert got["SUNSET HILLS ASSISTED LIVING"] == 40
+    assert all(value in (0, 20, 40) for value in got.values())
+    assert max(got, key=got.get) == "SUNSET HILLS ASSISTED LIVING"
 
 
 def test_recency_bands():
@@ -198,12 +197,48 @@ def test_industry_cell_shows_the_permit_type_when_no_title():
     assert _industry_cell(record, "722511") != "From permit: Plumbing/Mechanical Work"
 
 
-def test_key_help_names_the_key_file_folder():
+def test_a_restaurant_search_keeps_restaurants_and_drops_other_permits():
+    from leadgen.industry import codes_for_request, terms_for
+    from leadgen.permits import matches_business
+    from leadgen.sources.phoenix import phoenix_params
+    from leadgen.sources.records import PublicRecord, SourceQuery
+
+    codes = codes_for_request("Restaurants in Phoenix")
+    assert "722511" in codes
+    assert "722511" in codes_for_request("restaraunt")
+    terms = terms_for(codes)
+    assert "restaurant" in terms
+    restaurant = PublicRecord(
+        source="phoenix_permits",
+        source_record_id="r",
+        source_url="u",
+        business_name="Harbor Restaurant",
+        site_name="Harbor Restaurant",
+        project="Tenant improvement",
+    )
+    other = restaurant.model_copy(
+        update={
+            "source_record_id": "e",
+            "business_name": "Suite 104: First time tenant Escapology TI",
+            "site_name": "Suite 104: First time tenant Escapology TI",
+        }
+    )
+    assert matches_business(restaurant, terms)
+    assert not matches_business(other, terms)
+    where = phoenix_params(SourceQuery(permit_type="Building", keywords=["restaurant"]), 10)[0][1]
+    assert "UPPER(PERMIT_NAME) LIKE UPPER('%restaurant%')" in where
+    assert "Escapology" not in where
+
+
+def test_key_help_names_the_missing_key():
     from leadgen.sources.transport import plain_message
 
     sam = plain_message("sam", "sam_key")
-    assert "Add SAM_API_KEY to your key file in C:\\Users\\msell\\secrets" in sam
-    assert "LEADGEN_EDGAR_USER_AGENT" in plain_message("edgar", "edgar_agent")
+    assert sam == "SAM.gov is not set up. Add SAM_API_KEY to the key file."
+    assert "secrets" not in sam
+    edgar = plain_message("edgar", "edgar_agent")
+    assert edgar == "SEC EDGAR is not set up. Add LEADGEN_EDGAR_USER_AGENT to the key file."
+    assert "secrets" not in edgar
 
 
 def test_keys_in_the_key_file_are_read_at_search_time(tmp_path, monkeypatch):
@@ -224,10 +259,9 @@ def test_keys_in_the_key_file_are_read_at_search_time(tmp_path, monkeypatch):
 
     filt = SearchFilter(sources=["sam"], state="AZ", cities=["Phoenix"])
     first = execute(_profile(), filt, [], tmp_path / "a", today=TODAY, transport=transport)
-    assert any(
-        r"Add SAM_API_KEY to your key file in C:\Users\msell\secrets" in line
-        for line in first.statuses
-    )
+    assert first.statuses == ["SAM.gov is not set up. Add SAM_API_KEY to the key file."]
+    assert first.messages == []
+    assert all("secrets" not in line for line in first.statuses)
     assert seen == []
 
     env.write_text("LEADGEN_LLM_MODE=live\nSAM_API_KEY=test-key-123\n", encoding="utf-8")

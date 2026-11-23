@@ -30,7 +30,7 @@ UNREACHABLE = "The mail service could not be reached. Nothing was sent."
 REJECTED_BY_PROVIDER = "The mail service did not accept this note. Nothing was sent."
 NEEDS_CONFIRMATION = "Send now needs a second confirmation."
 PLACEHOLDER_SEND = (
-    "Add Acme's real sender name, address, and phone in the settings file before sending"
+    "Add the real sender name, address, and phone in the settings file before sending"
 )
 ALREADY_SENT = "This note was already sent. A new draft is still allowed."
 NOT_CONNECTED = "This account is not connected. Reconnect, then try again."

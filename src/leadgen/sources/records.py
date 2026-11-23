@@ -65,6 +65,7 @@ class SourceQuery(BaseModel):
     date_from: str = ""
     date_to: str = ""
     area: str = ""
+    keywords: list[str] = Field(default_factory=list)
 
 
 class SearchFilter(BaseModel):

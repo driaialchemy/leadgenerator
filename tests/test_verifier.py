@@ -161,7 +161,7 @@ def test_claim_sets_must_match():
 
 def test_hook_over_the_word_cap():
     _tailor, draft = _load("b2b_001_good.json")
-    hook = " ".join(["alpha"] * 91)
+    hook = " ".join(["alpha"] * 111)
     report = _verify(
         "b2b_001_good.json",
         "b2b_services",
@@ -169,7 +169,7 @@ def test_hook_over_the_word_cap():
         draft_update={"hook": hook},
     )
     assert {issue.code for issue in report.blocking} == {"too_long"}
-    total = 91 + len(draft.bridge.split())
+    total = 111 + len(draft.bridge.split())
     assert _message_has(report, "too_long", str(total))
 
 

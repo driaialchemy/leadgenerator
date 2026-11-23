@@ -44,7 +44,7 @@ def parse_sam(body: str) -> list[PublicRecord]:
 def matches_sam(record: PublicRecord, query: SourceQuery) -> bool:
     if query.legal_name:
         return normalize_name(record.business_name) == normalize_name(query.legal_name)
-    if query.naics and record.naics and not any(code in record.naics for code in query.naics):
+    if query.naics and not any(code in record.naics for code in query.naics):
         return False
     if query.state and record.state.casefold() != query.state.casefold():
         return False

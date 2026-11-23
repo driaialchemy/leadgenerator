@@ -13,6 +13,19 @@ def tailor_prompt(
     lines = [_file("tailor"), "", f"Prospect id: {prospect.prospect_id}", "", "Notes:", prospect.notes, "", "Attributes:"]
     for name, value in prospect.attributes.items():
         lines.append(f"{name}: {value}")
+    sender_field = str(prospect.attributes.get("sender_field") or "").strip()
+    target_market = str(prospect.attributes.get("target_market") or "").strip()
+    if sender_field or target_market:
+        lines.extend(
+            [
+                "",
+                "Sender's user-supplied occupation or service field:",
+                sender_field[:120] or "Not specified",
+                "Recipient target market from the selected search result:",
+                target_market[:120] or "Not identified in this public record",
+                "Write from the sender's perspective and explain a plausible benefit for a business in the recipient target market. Treat the sender field as user-provided direction. Do not invent recipient problems, needs, or facts.",
+            ]
+        )
     lines.extend(["", "Approved claims:"])
     for claim_id, text in profile.approved_claims.items():
         lines.append(f"{claim_id}: {text}")
@@ -35,6 +48,12 @@ def drafter_prompt(
         "",
         "Tailor result:",
         tailor.model_dump_json(),
+        "",
+        "Sender's occupation or service field:",
+        str(prospect.attributes.get("sender_field") or "Not specified")[:120],
+        "Recipient target market from the selected public-record result:",
+        str(prospect.attributes.get("target_market") or "Not identified in this public record")[:120],
+        "Write from the sender's perspective and explain a plausible benefit for a business in the recipient target market. Treat the sender field as user-provided direction. Do not invent recipient problems, needs, or facts.",
         "",
         "Approved subjects:",
     ]
@@ -85,7 +104,7 @@ def translator_prompt(profile: Profile, request: str) -> str:
             "Allowed business types: " + ", ".join(profile.search.business_types),
             "Allowed permit types: " + ", ".join(profile.search.permit_types),
             "Allowed areas: " + ", ".join(profile.search.areas),
-            "Allowed sizes: 1-49, 50-249, 250-499, 500-999",
+            "Allowed sizes: 1-49, 50-99, 100-250",
         ]
     )
     return "\n".join(lines)

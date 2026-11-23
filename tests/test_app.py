@@ -7,20 +7,21 @@ from streamlit.testing.v1 import AppTest
 
 from leadgen.llm import ProviderError
 from leadgen.paths import repo_root
-from support import seed_shortlist
 
 APP = repo_root() / "src" / "leadgen" / "app.py"
 SECRET = "unit-test-key-value-9f3a"
-TITLES = ("Shortlist", "Draft", "Review", "Send", "Logbook", "Funnel")
+TITLES = ("Previous Searches", "Draft", "Review", "Send", "Logbook")
+SHIPPED = {"hero_banner_web.jpg", "show_approve.jpg", "show_draft.jpg", "show_find.jpg"}
 
 
-def test_no_image_is_rendered_or_shipped(monkeypatch, tmp_path):
+def test_only_the_named_images_ship_and_none_is_rendered_inline(monkeypatch, tmp_path):
     shipped = [
         path
         for path in (repo_root() / "assets").rglob("*")
         if path.suffix.lower() in {".webp", ".png", ".jpg", ".jpeg", ".gif", ".svg"}
     ]
-    assert shipped == []
+    # assets/source holds the originals and is git-ignored.
+    assert {path.name for path in shipped if "source" not in path.parts} == SHIPPED
     _isolate(monkeypatch, tmp_path)
     at = _open()
     _ok(at)
@@ -37,7 +38,6 @@ def test_every_tab_renders(monkeypatch, tmp_path):
 
 def test_run_then_approve_writes_one_outbox_file(monkeypatch, tmp_path):
     _isolate(monkeypatch, tmp_path)
-    seed_shortlist(tmp_path, 1)
     _seed_draft(tmp_path)
     at = _open()
     at.button(key="nav_run").click().run(timeout=60)
@@ -86,7 +86,6 @@ def test_check_keys_hides_the_key(monkeypatch, tmp_path):
 
 def test_provider_error_suggests_offline(monkeypatch, tmp_path):
     _isolate(monkeypatch, tmp_path)
-    seed_shortlist(tmp_path, 1)
     _seed_draft(tmp_path)
 
     def boom(*_args, **_kwargs):
@@ -128,16 +127,12 @@ def _seed_draft(root: Path) -> None:
         "attributes": {
             "in_service_area": "yes",
             "named_contact": "yes",
-            "recent_permit": "yes",
-            "hiring_fit": "yes",
-            "permit_recency": "d90",
-            "plumbing_tie": "strong",
-            "permit_count": "many",
+            "target_industry_match": "yes",
         },
     }
     runs = root / "runs"
     runs.mkdir(parents=True, exist_ok=True)
-    (runs / "shortlist.json").write_text(
+    (runs / "current_search.json").write_text(
         json.dumps(
             [
                 {
@@ -163,8 +158,8 @@ def _seed_draft(root: Path) -> None:
         json.dumps(
             {
                 "prospect_id": "SAM-RIVER",
-                "claim_ids": ["RATE-01"],
-                "evidence": [{"claim_id": "RATE-01", "quote": "Asked for a walkthrough"}],
+                "claim_ids": ["GENERAL-01"],
+                "evidence": [{"claim_id": "GENERAL-01", "quote": "Asked for a walkthrough"}],
             }
         ),
         encoding="utf-8",
@@ -174,7 +169,7 @@ def _seed_draft(root: Path) -> None:
             {
                 "prospect_id": "SAM-RIVER",
                 "subject_id": "SUB-01",
-                "claim_ids": ["RATE-01"],
+                "claim_ids": ["GENERAL-01"],
                 "hook": "You asked for a walkthrough of the line.",
                 "bridge": "We can set a time to walk the property.",
             }

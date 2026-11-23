@@ -69,8 +69,9 @@ def test_translator_failure_still_searches_the_fields(tmp_path, monkeypatch):
     assert outcome.filter.sources
     assert "sources none" not in " ".join(outcome.messages)
     assert outcome.filter.naics == ["722511"]
-    assert any(hit.record.city == "Phoenix" for hit in outcome.hits)
-    assert any(hit.record.city == "Tucson" for hit in outcome.hits)
+    assert "Phoenix" in outcome.filter.cities
+    assert "Tucson" in outcome.filter.cities
+    assert outcome.statuses
 
 
 def test_search_with_no_industry_covers_both_metros_and_reports_status(tmp_path):
@@ -184,14 +185,14 @@ def test_approved_price_passes_and_another_price_or_discount_is_blocked():
     prospect = _prospect()
     tailor = TailorResult(
         prospect_id=prospect.prospect_id,
-        claim_ids=["RATE-01"],
-        evidence=[EvidenceQuote(claim_id="RATE-01", quote="Asked for a walkthrough")],
+        claim_ids=["GENERAL-01"],
+        evidence=[EvidenceQuote(claim_id="GENERAL-01", quote="Asked for a walkthrough")],
     )
     draft = _draft(prospect, "You asked for a walkthrough of the line.", "We can set a time to walk the property.")
     report = verify(tailor, draft, prospect, profile, pipeline)
     assert report.passed
     body = render(draft, prospect, profile).body
-    assert "$150 per hour plus parts" in body
+    assert body.startswith("Hi Riley,")
     discounted = _draft(prospect, "You asked for a walkthrough and a discount.", "We can set a time.")
     blocked = verify(tailor, discounted, prospect, profile, pipeline)
     assert not blocked.passed
@@ -212,7 +213,7 @@ def test_placeholder_sender_blocks_send_and_allows_drafts(tmp_path):
     refused = deliver(tmp_path, run, "gmail", "send", confirmed=True, demo_safety=False, client=client)
     assert not refused.ok
     assert refused.message == (
-        "Add Acme's real sender name, address, and phone in the settings file before sending"
+        "Add the real sender name, address, and phone in the settings file before sending"
     )
     assert all(call[0] != "send" for call in client.calls)
 
@@ -228,14 +229,18 @@ def test_screen_has_no_picker_and_shortlist_uses_names(monkeypatch, tmp_path):
     assert "B2B-" not in text
     assert "HOME-" not in text
     assert at.sidebar.selectbox == [] or all(box.label != "Business" for box in at.sidebar.selectbox)
+    at.text_input(key="industry_query").set_value("restaurants").run()
+    at.button(key="suggest_0").click().run()
     at.button(key="search").click().run()
     assert not at.exception
-    at.button(key="add_all").click().run()
+    assert "Elden Kitchen" in _text(at)
+    # A second search moves the first results to Previous Searches.
+    at.button(key="search").click().run()
     assert not at.exception
     _switch(at, "shortlist")
     shown = _text(at)
     assert "B2B-" not in shown
-    assert "Congress Kitchen" in shown or "Northwind Example LLC" in shown
+    assert "Elden Kitchen" in shown
 
 
 class _Mailbox:
@@ -309,11 +314,7 @@ def _prospect():
         attributes={
             "in_service_area": "yes",
             "named_contact": "yes",
-            "recent_permit": "yes",
-            "hiring_fit": "yes",
-            "permit_recency": "d90",
-            "plumbing_tie": "strong",
-            "permit_count": "many",
+            "target_industry_match": "yes",
         },
     )
 
@@ -322,7 +323,7 @@ def _draft(prospect, hook, bridge):
     return DraftEmail(
         prospect_id=prospect.prospect_id,
         subject_id="SUB-01",
-        claim_ids=["RATE-01"],
+        claim_ids=["GENERAL-01"],
         hook=hook,
         bridge=bridge,
     )

@@ -29,3 +29,18 @@ def add_shortlist(root: Path, rows: list[dict]) -> list[dict]:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(current, indent=2), encoding="utf-8")
     return current
+
+
+def replace_shortlist(root: Path, rows: list[dict]) -> list[dict]:
+    """Keep the shortlist aligned with the latest displayed search results."""
+    unique = []
+    seen = set()
+    for row in rows:
+        prospect_id = row.get("prospect_id")
+        if prospect_id and prospect_id not in seen:
+            unique.append(row)
+            seen.add(prospect_id)
+    path = Path(root) / "runs" / "shortlist.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(unique, indent=2), encoding="utf-8")
+    return unique

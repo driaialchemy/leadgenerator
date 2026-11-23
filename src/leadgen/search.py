@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from leadgen.industry import keep_record, size_line
+from leadgen.industry import codes_for_request, keep_record, size_line, terms_for
 from leadgen.json_text import parse_model_json
 from leadgen.kill_switch import assert_not_engaged
 from leadgen.llm import ProviderError, complete, scrub
@@ -29,7 +29,12 @@ from leadgen.sources.edgar import (
     parse_submission,
     submissions_url,
 )
-from leadgen.permits import PERMIT_SOURCES, consolidate, count_band, recency_band, refine
+from leadgen.permits import (
+    PERMIT_SOURCES,
+    consolidate,
+    matches_business,
+    refine,
+)
 from leadgen.sources.phoenix import ENDPOINT as PHOENIX_ENDPOINT
 from leadgen.sources.phoenix import matches_phoenix, parse_phoenix, phoenix_params
 from leadgen.sources.records import (
@@ -112,6 +117,7 @@ def search(
     chosen_sizes: list[str] | None = None,
     known_size_only: bool = False,
     chosen_cities: list[str] | None = None,
+    fresh: bool = False,
 ) -> SearchOutcome:
     """Rank public records. On-screen fields run the search. Free text may add a filter."""
     folder = Path(root) if root is not None else repo_root()
@@ -125,6 +131,10 @@ def search(
             translated, unsupported = translate(profile, request, folder)
         except (ValueError, json.JSONDecodeError, ValidationError, ProviderError, FileNotFoundError, OSError):
             notes.append("The request could not be read. The search used the fields on screen.")
+            if not filt.naics:
+                codes = codes_for_request(request)
+                if codes:
+                    filt = filt.model_copy(update={"naics": codes})
         else:
             updates = {}
             if not filt.naics and translated.naics:
@@ -145,6 +155,7 @@ def search(
         lookup_cap=lookup_cap,
         request=request,
         notes=notes,
+        fresh=fresh,
     )
 
 
@@ -160,6 +171,7 @@ def execute(
     lookup_cap: int | None = None,
     request: str = "",
     notes: list[str] | None = None,
+    fresh: bool = False,
 ) -> SearchOutcome:
     config = pipeline or load_pipeline_config()
     day = today or date.today()
@@ -173,7 +185,11 @@ def execute(
     records: list[PublicRecord] = []
     source_counts: dict[str, int] = {}
     statuses: list[str] = []
+    terms = terms_for(filt.naics)
     query = _query(filt)
+    if terms:
+        query = query.model_copy(update={"keywords": terms})
+    sam_stopped = False
     for source_id in filt.sources:
         spec = specs.get(source_id)
         if spec is None or spec.role != "search":
@@ -188,23 +204,33 @@ def execute(
             caller,
             day,
             config.sam_page_budget,
+            fresh,
         )
         label = SOURCE_LABELS.get(source_id, source_id)
         permit_stats = None
+        aside = 0
         if source_id in PERMIT_SOURCES:
             found, permit_stats = refine(found, profile.search.permits)
             permit_stats.total = permit_stats.total or 0
+            if terms:
+                matched = [row for row in found if matches_business(row, terms)]
+                aside = len(found) - len(matched)
+                found = matched
         source_counts[source_id] = len(found)
         records.extend(found)
         if failure:
-            statuses.append(failure if failure == SAM_DAILY else f"{label}: {failure}")
-            messages.append(failure)
+            if source_id == "sam":
+                sam_stopped = True
+            statuses.append(failure if failure == SAM_DAILY or failure.startswith(label) else f"{label}: {failure}")
         elif permit_stats is not None:
-            statuses.append(permit_stats.line(label))
+            line = permit_stats.line(label)
+            if aside:
+                line += f" · {aside} left out, not the kind of business you asked for"
+            statuses.append(line)
         else:
             noun = "record" if len(found) == 1 else "records"
             statuses.append(f"{label}: {len(found)} {noun}")
-    if any(spec.role == "lookup" and spec.id in filt.sources for spec in profile.search.sources):
+    if not sam_stopped and any(spec.role == "lookup" and spec.id in filt.sources for spec in profile.search.sources):
         names = []
         for record in records:
             if record.business_name and record.business_name not in names:
@@ -222,7 +248,8 @@ def execute(
                 day,
             )
             if failure is not None:
-                messages.append(failure)
+                if failure not in messages and not any(failure in line for line in statuses):
+                    messages.append(failure)
                 break
             records.extend(found)
     permit_rows = [record for record in records if record.source in PERMIT_SOURCES]
@@ -259,10 +286,6 @@ def execute(
         )
         if failure is not None:
             messages.append(failure)
-    if filt.naics and {"phoenix_permits", "tucson_permits"} & set(filt.sources):
-        messages.append(
-            "City permit records do not list an industry, so the industry you picked does not narrow them."
-        )
     marked = [_mark(record, windows, day) for record in merged]
     kept, held_back = split_suppression(marked, load_suppression())
     sized = [record for record in kept if keep_record(record, filt.sizes, filt.known_size_only)]
@@ -429,15 +452,15 @@ def remember_add(root: Path, prospect: Prospect) -> None:
     )
 
 
-def _search_source(source_id, query, root, cap, hours, network, transport, today, sam_budget=5):
+def _search_source(source_id, query, root, cap, hours, network, transport, today, sam_budget=5, fresh=False):
     if source_id == "sam":
         if not query.legal_name and not (
             query.naics or query.state or query.city or query.cities or query.business_type
         ):
             return [], "SAM.gov needs a NAICS code, state, city, or business type."
         if query.legal_name:
-            return _sam_once(query, root, cap, hours, network, transport)
-        return _sam_pages(query, root, cap, hours, network, transport, sam_budget)
+            return _sam_once(query, root, cap, hours, network, transport, fresh)
+        return _sam_pages(query, root, cap, hours, network, transport, sam_budget, fresh)
     if source_id == "phoenix_permits":
         if not (query.permit_type or query.area or query.date_from or query.date_to):
             return [], "Phoenix permits needs a permit type, date range, or area."
@@ -455,6 +478,7 @@ def _search_source(source_id, query, root, cap, hours, network, transport, today
             hours,
             network,
             transport,
+            fresh,
         )
     if source_id == "tucson_permits":
         return _arc_pages(
@@ -471,11 +495,12 @@ def _search_source(source_id, query, root, cap, hours, network, transport, today
             hours,
             network,
             transport,
+            fresh,
         )
     return [], None
 
 
-def _sam_once(query, root, cap, hours, network, transport):
+def _sam_once(query, root, cap, hours, network, transport, fresh=False):
     try:
         records = _cached_call(
             "sam",
@@ -490,6 +515,7 @@ def _sam_once(query, root, cap, hours, network, transport):
             network,
             transport,
             _sam_key(network),
+            fresh,
         )
     except SourceFailure as exc:
         if exc.kind == "rate":
@@ -498,7 +524,7 @@ def _sam_once(query, root, cap, hours, network, transport):
     return [record for record in records if matches_sam(record, query)], None
 
 
-def _sam_pages(query, root, cap, hours, network, transport, budget):
+def _sam_pages(query, root, cap, hours, network, transport, budget, fresh=False):
     """One Arizona query, then keep the metro cities. Stop at the page budget."""
     kept = []
     pages = max(1, budget)
@@ -517,6 +543,7 @@ def _sam_pages(query, root, cap, hours, network, transport, budget):
                 network,
                 transport,
                 _sam_key(network),
+                fresh,
             )
         except SourceFailure as exc:
             if exc.kind == "rate":
@@ -530,7 +557,7 @@ def _sam_pages(query, root, cap, hours, network, transport, budget):
     return kept[:cap], None
 
 
-def _arc_pages(source_id, endpoint, params_fn, parse, match, fixture, page_size, query, root, cap, hours, network, transport):
+def _arc_pages(source_id, endpoint, params_fn, parse, match, fixture, page_size, query, root, cap, hours, network, transport, fresh=False):
     kept = []
     offset = 0
     while len(kept) < cap:
@@ -549,6 +576,7 @@ def _arc_pages(source_id, endpoint, params_fn, parse, match, fixture, page_size,
                 network,
                 transport,
                 "",
+                fresh,
             )
         except SourceFailure as exc:
             if kept:
@@ -644,7 +672,7 @@ def _submission(cik, root, hours, network, transport) -> str:
     return _cached_body("edgar", url, [], _edgar_headers(network), root, hours, transport, "")
 
 
-def _cached_call(source, endpoint, params, headers, parser, fixture, root, cap, hours, network, transport, api_key):
+def _cached_call(source, endpoint, params, headers, parser, fixture, root, cap, hours, network, transport, api_key, fresh=False):
     if not network:
         started = time.perf_counter()
         records = parser(_fixture(fixture))[:cap]
@@ -658,15 +686,15 @@ def _cached_call(source, endpoint, params, headers, parser, fixture, root, cap, 
             False,
         )
         return records
-    body = _cached_body(source, endpoint, params, headers, root, hours, transport, fixture, api_key)
+    body = _cached_body(source, endpoint, params, headers, root, hours, transport, fixture, api_key, fresh)
     records = parser(body)
     return records[:cap]
 
 
-def _cached_body(source, endpoint, params, headers, root, hours, transport, fixture, api_key=""):
+def _cached_body(source, endpoint, params, headers, root, hours, transport, fixture, api_key="", fresh=False):
     material = endpoint + "|" + urllib.parse.urlencode(params)
     path = cache_file(root, source, material)
-    cached = read_cache(path, hours)
+    cached = None if fresh else read_cache(path, hours)
     if cached is not None:
         try:
             count = _count_body(source, cached)
@@ -1045,12 +1073,7 @@ def _record_attributes(profile: Profile, record: PublicRecord, today: date | Non
     values = {
         "in_service_area": "yes" if record.city.casefold() in cities else "no",
         "named_contact": "yes" if record.contact_name.strip() else "no",
-        "recent_permit": "yes" if record.recent_permit else "no",
-        "hiring_fit": "yes" if set(record.naics) & set(profile.fit_naics) else "no",
-        "permit_recency": recency_band(record.permit_date, today or date.today(), profile.search.permits),
-        "plumbing_tie": record.plumbing_tie
-        or ("strong" if set(record.naics) & set(profile.fit_naics) else "none"),
-        "permit_count": count_band(record.permit_count, profile.search.permits),
+        "target_industry_match": "yes" if record.naics else "no",
     }
     return {key: value for key, value in values.items() if key in declared}
 

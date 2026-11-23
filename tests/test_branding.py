@@ -38,8 +38,8 @@ def test_top_bar_hero_and_wordmark_render_on_every_step(monkeypatch, tmp_path):
 
 def test_header_words_come_from_the_profile():
     brand = load_profile("acme_plumbing").brand
-    assert brand.service_line == "Greater Phoenix & Tucson · $150/hr plus parts"
-    assert brand.hero_subtitle == "Find and reach commercial customers"
+    assert brand.service_line == ""
+    assert brand.hero_subtitle == "Find businesses in the field you choose"
     page = (ROOT / "src" / "leadgen" / "app.py").read_text(encoding="utf-8")
     assert "$150" not in page
     assert "Find and reach" not in page
@@ -58,7 +58,7 @@ def test_missing_photo_falls_back_to_the_gradient():
 
 def test_no_photo_in_repo_means_no_error_on_the_page(monkeypatch, tmp_path):
     monkeypatch.setenv("LEADGEN_DATA_ROOT", str(tmp_path))
-    if (ROOT / ui_theme.HERO_SOURCE).is_file():
+    if (ROOT / ui_theme.HERO_SOURCE).is_file() or (ROOT / ui_theme.HERO_WEB).is_file():
         return
     at = AppTest.from_file(str(APP), default_timeout=60)
     at.run()
@@ -111,14 +111,24 @@ def test_hero_text_holds_on_the_lightest_photo_under_the_overlay():
 
 
 def test_palette_is_the_agreed_one():
-    assert ui_theme.BLUE == "#1D4ED8"
-    assert ui_theme.SKY == "#E0F2FE"
-    assert ui_theme.SLATE == "#0F172A"
-    assert ui_theme.CYAN == "#06B6D4"
-    assert ui_theme.GREEN == "#16A34A"
-    assert ui_theme.AMBER == "#F59E0B"
+    assert ui_theme.BG == "#070B1F"
+    assert ui_theme.BLUE == "#3B5BDB"
+    assert ui_theme.CYAN == "#22D3EE"
+    assert ui_theme.VIOLET == "#6D3FE0"
+    assert ui_theme.SKY == "#0F1733"
+    assert ui_theme.SLATE == "#E8ECF8"
+    assert ui_theme.GREEN == "#22C55E"
+    assert ui_theme.AMBER == "#F5B942"
     config = (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
-    assert "#1D4ED8" in config
+    assert "#3B5BDB" in config
+    assert 'base = "dark"' in config
+
+
+def test_showcase_images_are_small_and_shown_on_find():
+    for name, _title, _text in ui_theme.SHOWCASE:
+        path = ROOT / "assets" / name
+        assert path.is_file(), name
+        assert path.stat().st_size <= 80 * 1024, name
 
 
 def test_colors_live_only_in_the_theme_and_config():

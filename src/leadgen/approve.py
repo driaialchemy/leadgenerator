@@ -71,8 +71,8 @@ def decide(
     if status["status"] == "BLOCKED":
         return 1, "BLOCKED runs cannot be approved."
     if not name.strip():
-        return 1, "A name is required."
-    if status["findings"] and not ack_findings:
+        return 1, "Add your name to sign this decision, or save it once in Settings under Your details."
+    if status["findings"] and not ack_findings and decision != "REJECTED":
         return 1, "Findings must be acknowledged."
     if (run_dir / "approval.json").is_file():
         return 1, "This run was already decided."

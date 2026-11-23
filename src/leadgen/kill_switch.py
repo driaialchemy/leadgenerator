@@ -20,10 +20,13 @@ def is_engaged(root: Path | None = None) -> bool:
     Only that folder is read. An explicit path does not search parent directories.
     """
     folder = Path(root) if root is not None else repo_root()
-    load_dotenv(folder / ".env", override=False)
+    repository = repo_root()
+    load_dotenv(repository / ".env", override=False)
+    if folder.resolve() != repository.resolve():
+        load_dotenv(folder / ".env", override=False)
     if os.environ.get("LEADGEN_KILL_SWITCH") == "1":
         return True
-    return (folder / "KILL_SWITCH").is_file()
+    return (repository / "KILL_SWITCH").is_file() or (folder / "KILL_SWITCH").is_file()
 
 
 def assert_not_engaged(root: Path | None = None) -> None:

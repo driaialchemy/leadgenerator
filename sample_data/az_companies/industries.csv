@@ -1,0 +1,51 @@
+naics_code,naics_title,industry_group,typical_revenue_per_employee,typical_profit_margin_pct,typical_marketing_pct_of_revenue,common_pain_points,owner_title,operations_title,office_marketing_title
+722511,Full-Service Restaurants,Food & Hospitality,75000,5.0,4.0,food cost pressure; slow weeknights; delivery app fees,Owner,General Manager,Marketing Manager
+722513,Limited-Service Restaurants,Food & Hospitality,65000,6.0,4.0,delivery app fees; drive-thru wait times,Owner,Operations Manager,Marketing Manager
+722515,Snack and Nonalcoholic Beverage Bars,Food & Hospitality,60000,8.0,5.0,low afternoon traffic; loyalty program gaps,Owner,Store Manager,Marketing Coordinator
+722320,Caterers,Food & Hospitality,80000,7.0,4.0,seasonal demand; last-minute order changes,Owner,Events Manager,Sales Coordinator
+312120,Breweries,Food & Hospitality,150000,8.0,5.0,distribution reach; taproom events,Founder,Taproom Manager,Marketing Manager
+721110,Hotels and Motels,Food & Hospitality,90000,12.0,5.0,OTA commission costs; guest review scores,General Manager,Director of Operations,Sales Manager
+621210,Offices of Dentists,Health,130000,15.0,4.0,insurance billing delays; new patient flow,Dentist / Owner,Practice Manager,Office Manager
+621111,Offices of Physicians,Health,160000,10.0,2.0,patient no-shows; prior authorization workload,Medical Director,Practice Administrator,Office Manager
+621310,Offices of Chiropractors,Health,90000,14.0,6.0,patient retention; insurance changes,Chiropractor / Owner,Clinic Manager,Front Office Manager
+621340,Physical Therapy Offices,Health,95000,11.0,4.0,referral volume; scheduling gaps,Owner / PT,Clinic Director,Office Manager
+541940,Veterinary Services,Health,110000,12.0,3.0,staffing shortages; appointment backlog,Veterinarian / Owner,Hospital Manager,Office Manager
+812199,Med Spas and Personal Care,Health,85000,16.0,8.0,client acquisition cost; membership churn,Owner,Spa Director,Marketing Manager
+541110,Law Firms,Professional Services,180000,20.0,3.0,intake follow-up; billable hour tracking,Managing Partner,Firm Administrator,Marketing Coordinator
+541211,Accounting Firms,Professional Services,120000,18.0,2.0,tax-season overload; client document collection,Managing Partner,Operations Manager,Office Manager
+524210,Insurance Agencies,Professional Services,140000,15.0,4.0,policy retention; lead quality,Agency Principal,Operations Manager,Marketing Coordinator
+531210,Real Estate Brokerages,Professional Services,200000,8.0,6.0,agent recruiting; listing inventory,Broker / Owner,Office Manager,Marketing Director
+541310,Architectural Firms,Professional Services,130000,10.0,2.0,project pipeline gaps; software costs,Principal,Studio Manager,Office Manager
+541330,Engineering Services,Professional Services,160000,11.0,2.0,bid win rate; hiring engineers,Principal Engineer,Operations Manager,Office Manager
+541511,IT Services and Programming,Professional Services,150000,12.0,3.0,client churn; recruiting developers,CEO,Operations Director,Marketing Manager
+561311,Staffing Agencies,Professional Services,110000,5.0,3.0,candidate supply; margin pressure,President,Branch Manager,Recruiting Coordinator
+238220,Plumbing and HVAC Contractors,Trades & Construction,140000,9.0,3.0,dispatch efficiency; technician hiring,Owner,Operations Manager,Office Manager
+238210,Electrical Contractors,Trades & Construction,135000,9.0,2.0,estimating time; permit delays,Owner,Project Manager,Office Manager
+238160,Roofing Contractors,Trades & Construction,150000,10.0,4.0,monsoon-season spikes; lead follow-up,Owner,Operations Manager,Office Manager
+561730,Landscaping Services,Trades & Construction,75000,8.0,3.0,route planning; summer heat scheduling,Owner,Crew Operations Manager,Office Manager
+236220,Commercial General Contractors,Trades & Construction,250000,6.0,1.0,subcontractor availability; material price swings,President,Project Executive,Office Manager
+561710,Pest Control Services,Trades & Construction,90000,12.0,4.0,route density; seasonal demand,Owner,Service Manager,Office Manager
+238350,Finish Carpentry and Remodeling,Trades & Construction,110000,9.0,3.0,project scheduling; showroom traffic,Owner,Project Manager,Office Manager
+448120,Women's Clothing Boutiques,Retail,120000,6.0,6.0,online competition; inventory turnover,Owner,Store Manager,Social Media Manager
+441110,New Car Dealers,Retail,600000,3.0,2.0,inventory financing; service bay utilization,Dealer Principal,General Manager,Marketing Director
+442110,Furniture Stores,Retail,220000,5.0,5.0,delivery logistics; showroom traffic,Owner,Store Manager,Marketing Manager
+451110,Sporting Goods Stores,Retail,180000,5.0,4.0,seasonal inventory; online competition,Owner,Store Manager,Marketing Coordinator
+453910,Pet Supply Stores,Retail,170000,5.0,5.0,big-box competition; grooming bookings,Owner,Store Manager,Marketing Coordinator
+445110,Grocery Stores,Retail,200000,3.0,2.0,shrink and waste; thin margins,Owner,Store Director,Office Manager
+447110,Gas Stations with Convenience Stores,Retail,400000,2.0,1.0,fuel price swings; theft,Owner,Store Manager,Bookkeeper
+812112,Beauty Salons,Personal Services,55000,10.0,5.0,stylist retention; booking no-shows,Owner,Salon Manager,Front Desk Manager
+713940,Fitness Centers,Personal Services,60000,10.0,6.0,member churn; January-only signups,Owner,Club Manager,Marketing Manager
+611699,Yoga and Specialty Studios,Personal Services,50000,9.0,7.0,class fill rates; membership churn,Owner,Studio Manager,Community Manager
+624410,Child Day Care Services,Personal Services,45000,6.0,2.0,staff ratios; enrollment waitlist,Director / Owner,Assistant Director,Office Manager
+611691,Tutoring and Exam Prep,Personal Services,60000,12.0,6.0,seasonal enrollment; tutor hiring,Owner,Center Director,Enrollment Coordinator
+811111,Auto Repair Shops,Personal Services,120000,10.0,3.0,technician shortage; parts delays,Owner,Service Manager,Office Manager
+323111,Commercial Printing,B2B & Industrial,130000,7.0,2.0,paper costs; shrinking print volume,Owner,Production Manager,Customer Service Manager
+484110,Local Trucking and Logistics,B2B & Industrial,160000,6.0,1.0,fuel costs; driver retention,President,Dispatch Manager,Office Manager
+493110,Warehousing and Storage,B2B & Industrial,140000,8.0,1.0,labor scheduling; inventory accuracy,General Manager,Operations Manager,Office Manager
+332710,Machine Shops,B2B & Industrial,150000,8.0,1.0,skilled machinist hiring; quote turnaround,Owner,Plant Manager,Office Manager
+311811,Retail Bakeries,B2B & Industrial,70000,7.0,4.0,early-morning staffing; ingredient costs,Owner,Production Manager,Shop Manager
+531311,Residential Property Managers,Real Estate & Property,110000,10.0,2.0,tenant turnover; maintenance coordination,Owner / Broker,Portfolio Manager,Office Manager
+531120,Commercial Property Lessors,Real Estate & Property,250000,20.0,1.0,vacancy rates; building maintenance,Managing Partner,Property Manager,Office Manager
+813110,Religious Organizations,Community & Education,50000,3.0,1.0,volunteer coordination; facility upkeep,Senior Pastor,Executive Pastor,Office Administrator
+813319,Nonprofit Social Advocacy Organizations,Community & Education,60000,2.0,2.0,donor retention; grant reporting,Executive Director,Program Director,Development Coordinator
+611110,Private K-12 Schools,Community & Education,70000,4.0,2.0,enrollment growth; tuition collection,Head of School,Business Manager,Admissions Director

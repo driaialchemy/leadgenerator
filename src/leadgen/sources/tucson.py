@@ -3,6 +3,7 @@
 import json
 from datetime import date, datetime, timezone
 
+from leadgen.permits import keyword_clause
 from leadgen.sources.records import PublicRecord, SourceQuery, clean_date
 
 ENDPOINT = (
@@ -20,6 +21,9 @@ def tucson_params(query: SourceQuery, cap: int, offset: int = 0) -> list[tuple[s
         clauses.append(f"ISSUEDATE >= DATE '{_quote(query.date_from)}'")
     if query.date_to:
         clauses.append(f"ISSUEDATE <= DATE '{_quote(query.date_to)}'")
+    named = keyword_clause(["PROJECTNAME", "DESCRIPTION"], query.keywords)
+    if named:
+        clauses.append(named)
     where = " AND ".join(clauses)
     return [
         ("where", where),

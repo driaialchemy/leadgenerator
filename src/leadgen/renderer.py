@@ -58,14 +58,11 @@ def render(draft: DraftEmail, prospect: Prospect, profile: Profile) -> RenderedE
     if missing:
         raise ValueError(f"Claim id {missing[0]!r} is not on the approved list.")
     values = token_values(prospect, profile)
-    bullets = "\n".join(
-        f"- {profile.approved_claims[claim_id]}" for claim_id in draft.claim_ids
-    )
     sender = profile.sender
-    closing = [sender.name, sender.company, sender.postal_address]
+    closing = ["Best,", sender.name, sender.company]
     if sender.phone.strip():
         closing.append(sender.phone)
-    closing.append(profile.opt_out_line)
+    closing.extend([sender.postal_address, "", profile.opt_out_line])
     body = "\n".join(
         [
             f"Hi {values['contact_first_name'] or 'there'},",
@@ -73,8 +70,6 @@ def render(draft: DraftEmail, prospect: Prospect, profile: Profile) -> RenderedE
             fill(draft.hook, values),
             "",
             fill(draft.bridge, values),
-            "",
-            bullets,
             "",
             fill(profile.cta, values),
             "",

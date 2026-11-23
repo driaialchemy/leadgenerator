@@ -63,10 +63,10 @@ def test_size_bands_keep_unknown_records_and_match_the_summary():
         _Count(None),
     ]
     bands = [band.id for band in BANDS]
-    assert size_line(records, bands) == "1–49: 2, 50–249: 2, 250–499: 1, 500–999: 2"
+    assert size_line(records, bands) == "1–49: 2, 50–99: 1, 100–250: 2"
     assert keep_record(_Count(None), ["1-49"], False) is True
     assert keep_record(_Count(None), ["1-49"], True) is False
-    assert keep_record(_Count(10), ["50-249"], False) is False
+    assert keep_record(_Count(10), ["50-99"], False) is False
     assert keep_record(_Count(1000), bands, False) is False
     assert keep_record(_Count(12), [], False) is True
 
@@ -76,13 +76,14 @@ def test_census_fixture_sums_the_four_bands_and_ignores_other_classes():
     totals = sum_bands(rows, "621210", "04", "013")
     assert band_for_census("212") == band_for_census("220") == "1-49"
     assert band_for_census("230") == band_for_census("241") == "1-49"
-    assert band_for_census("242") == band_for_census("251") == "50-249"
-    assert band_for_census("252") == "250-499"
-    assert band_for_census("254") == "500-999"
+    assert band_for_census("242") == "50-99"
+    assert band_for_census("251") == "100-250"
+    assert band_for_census("252") == ""
+    assert band_for_census("254") == ""
     assert band_for_census("001") == ""
     assert band_for_census("260") == ""
-    # 10+20+30+40, 5+7, 3, 2. The 999 all-sizes row, the 8 of 1000+, and another county's 1000 stay out.
-    assert totals == {"1-49": 100, "50-249": 12, "250-499": 3, "500-999": 2}
+    # 10+20+30+40, 5, 7. Larger classes, the 999 all-sizes row, and another county's rows stay out.
+    assert totals == {"1-49": 100, "50-99": 5, "100-250": 7}
 
 
 def test_census_params_use_the_fixed_template_only():
@@ -231,30 +232,28 @@ def test_live_mode_names_the_market_card_as_the_size_view():
     assert "headcount" in LIVE_SIZE_NOTE
 
 
-def test_every_profile_can_pick_an_industry_and_a_size(monkeypatch, tmp_path):
+def test_the_page_can_pick_an_industry_and_a_size(monkeypatch, tmp_path):
     monkeypatch.setenv("LEADGEN_DATA_ROOT", str(tmp_path))
     at = AppTest.from_file(str(APP))
     at.run(timeout=60)
     assert list(at.exception) == []
     assert _primaries(at) == ["Search"]
-    for profile_id in profile_ids():
-        assert profile_id
-        at.text_input(key="industry_query").set_value("plumbr").run(timeout=60)
-        assert at.text_input(key="industry_query").value == "plumbr"
-        assert "Did you mean" in _text(at)
-        assert _primaries(at) == ["Search"]
-        at.button(key="suggest_0").click().run(timeout=60)
-        at.multiselect(key="size_bands").set_value(["1–49"]).run(timeout=60)
-        at.button(key="search").click().run(timeout=60)
-        assert list(at.exception) == []
-        assert at.multiselect(key="size_bands").value == ["1–49"]
-        assert "238220" in _text(at)
-        assert _primaries(at) == ["Next"]
+    at.text_input(key="industry_query").set_value("restaurants").run(timeout=60)
+    assert at.text_input(key="industry_query").value == "restaurants"
+    assert at.button(key="suggest_0").label.endswith("722511")
+    at.button(key="suggest_0").click().run(timeout=60)
+    at.multiselect(key="size_bands").set_value(["1–49"]).run(timeout=60)
+    at.button(key="search").click().run(timeout=60)
+    assert list(at.exception) == []
+    assert at.multiselect(key="size_bands").value == ["1–49"]
+    text = _text(at)
+    assert "722511" in text
+    assert "new businesses found" in text
+    assert _primaries(at) == ["Next"]
     at.run(timeout=60)
-    assert at.text_input(key="industry_query").value == "plumbr"
     at.button(key="nav_shortlist").click().run(timeout=60)
     at.button(key="nav_search").click().run(timeout=60)
-    assert at.text_input(key="industry_query").value == "plumbr"
+    assert at.text_input(key="industry_query").value == "restaurants"
     assert at.multiselect(key="size_bands").value == ["1–49"]
 
 
@@ -262,52 +261,28 @@ def test_removing_a_chip_changes_the_next_search(monkeypatch, tmp_path):
     monkeypatch.setenv("LEADGEN_DATA_ROOT", str(tmp_path))
     at = AppTest.from_file(str(APP))
     at.run(timeout=60)
-    at.text_input(key="industry_query").set_value("plumbr").run(timeout=60)
+    at.text_input(key="industry_query").set_value("restaurants").run(timeout=60)
     at.button(key="suggest_0").click().run(timeout=60)
     at.button(key="search").click().run(timeout=60)
     assert list(at.exception) == []
-    assert "238220" in _text(at)
-    at.button(key="chip_238220").click().run(timeout=60)
-    at.text_input(key="search_query").set_value("").run(timeout=60)
-    at.button(key="search").click().run(timeout=60)
-    assert list(at.exception) == []
-    assert all(getattr(button, "key", "") != "chip_238220" for button in at.button)
+    assert "722511" in _text(at)
+    at.button(key="chip_722511").click().run(timeout=60)
+    assert all(getattr(button, "key", "") != "chip_722511" for button in at.button)
+    assert "new businesses found" not in _text(at)
 
 
 def test_a_filled_size_survives_on_the_page(monkeypatch, tmp_path):
-    replay = tmp_path / "sample_data" / "replays" / "acme_plumbing" / "search"
-    replay.mkdir(parents=True)
-    (replay / "translator.json").write_text(
-        json.dumps(
-            {
-                "sources": ["sam", "edgar"],
-                "naics": ["621210"],
-                "state": "AZ",
-                "city": "Phoenix",
-                "business_type": "For Profit Organization",
-                "permit_type": "",
-                "date_from": "",
-                "date_to": "",
-                "area": "",
-                "sizes": ["1-49"],
-                "unsupported": [],
-            }
-        ),
-        encoding="utf-8",
-    )
     monkeypatch.setenv("LEADGEN_DATA_ROOT", str(tmp_path))
     at = AppTest.from_file(str(APP))
     at.run(timeout=60)
-    at.text_input(key="search_query").set_value("small dental offices in Phoenix").run(timeout=60)
+    at.text_input(key="industry_query").set_value("restaurants").run(timeout=60)
+    at.button(key="suggest_0").click().run(timeout=60)
+    at.multiselect(key="size_bands").set_value(["1–49"]).run(timeout=60)
     at.button(key="search").click().run(timeout=60)
     assert list(at.exception) == []
-    text = _text(at)
-    assert "Offices of Dentists" in text
-    assert "County totals" in text
-    assert "not a list of businesses" in text
-    assert "2023" in text
     assert at.multiselect(key="size_bands").value == ["1–49"]
-    assert at.button(key="chip_621210").label == "Offices of Dentists"
+    assert "employees" in _text(at)
+    assert at.button(key="chip_722511").label.startswith("✕ Full-Service Restaurants")
 
 
 def _primaries(at) -> list[str]:

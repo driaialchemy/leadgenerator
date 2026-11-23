@@ -3,6 +3,7 @@
 import json
 from datetime import date, datetime, timezone
 
+from leadgen.permits import keyword_clause
 from leadgen.sources.records import PublicRecord, SourceQuery, clean_date
 
 ENDPOINT = (
@@ -34,6 +35,9 @@ def phoenix_params(query: SourceQuery, cap: int, offset: int = 0) -> list[tuple[
         clauses.append(f"PERMIT_ISSUE_DATE <= DATE '{_quote(query.date_to)}'")
     if query.area:
         clauses.append(f"UPPER(ADDRESS) LIKE UPPER('%{_quote(query.area)}%')")
+    named = keyword_clause(["PERMIT_NAME", "SCOPE", "OWNER_NAME"], query.keywords)
+    if named:
+        clauses.append(named)
     where = " AND ".join(clauses)
     return [
         ("where", where),

@@ -10,3 +10,5 @@ outbox/*
 !outbox/.gitkeep
 assets/source/
 *.egg-info/
+.streamlit/secrets.toml
+*.html.download

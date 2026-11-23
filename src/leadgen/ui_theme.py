@@ -1,4 +1,4 @@
-"""Acme Plumbing look. Presentation only. Every color on the page lives here and in .streamlit/config.toml."""
+"""AI Lead Finder presentation theme. Every color lives here and in .streamlit/config.toml."""
 
 import base64
 import io
@@ -8,34 +8,44 @@ import streamlit as st
 
 from leadgen.paths import repo_root
 
-# Palette.
-CYAN = "#06B6D4"  # accent line under the bar. Too light for white text.
-BAR = "#0E7490"  # the top bar. A darker cyan so white text reads.
-BLUE = "#1D4ED8"  # primary buttons and headings
-BLUE_DARK = "#1E40AF"
-SKY = "#E0F2FE"  # panels
-SKY_DARK = "#BAE6FD"
+# Palette: midnight navy with neon blue, violet, and cyan, like the brand imagery.
+BG = "#070B1F"  # page
+SKY = "#0F1733"  # panels and cards
+SKY_DARK = "#18234D"  # raised panels, hover
+BAR = "#050816"  # the top bar
+CYAN = "#22D3EE"  # accent line, highlights
+BLUE = "#3B5BDB"  # primary buttons
+BLUE_DARK = "#2F4AC0"
+BLUE_TEXT = "#7AA2FF"  # headings on dark
+VIOLET = "#6D3FE0"
+VIOLET_TEXT = "#A78BFA"
 WHITE = "#FFFFFF"
-SLATE = "#0F172A"  # text
-MUTED = "#334155"
-LOCKED = "#475569"
-LINE = "#CBD5E1"
-GREEN = "#16A34A"  # approved
-GREEN_TEXT = "#166534"
-AMBER = "#F59E0B"  # findings
-AMBER_TEXT = "#92400E"
-RED = "#B91C1C"  # blocked only
-HERO_FROM = BLUE
-HERO_TO = BAR
+SLATE = "#E8ECF8"  # body text on dark
+INK = BG  # dark text on bright chips
+MUTED = "#A9B4D6"
+LOCKED = "#8792B8"
+LINE = "#2A3A73"
+GREEN = "#22C55E"  # approved
+GREEN_TEXT = "#4ADE80"
+AMBER = "#F5B942"  # findings
+AMBER_TEXT = "#FBBF24"
+RED = "#C53030"  # blocked only
+HERO_FROM = "#0B1440"
+HERO_TO = "#2A1060"
 
-# Dark overlay on the hero photo. The lightest it ever gets is OVERLAY_MIN, so white
-# text is checked against the worst case: a white photo under that alpha.
-OVERLAY_MAX = 0.82
-OVERLAY_MIN = 0.62
-HERO_SOURCE = Path("assets") / "source" / "hero_shower.jpg"
-HERO_WEB = Path("assets") / "hero_shower_web.jpg"
+# Dark overlay on the hero banner. The lightest it ever gets is OVERLAY_MIN, so white
+# text is checked against the worst case: a white image under that alpha.
+OVERLAY_MAX = 0.85
+OVERLAY_MIN = 0.60
+HERO_SOURCE = Path("assets") / "source" / "hero_banner.png"
+HERO_WEB = Path("assets") / "hero_banner_web.jpg"
 HERO_MAX_BYTES = 150 * 1024
 HERO_WIDTH = 1600
+SHOWCASE = (
+    ("show_find.jpg", "1 · Find", "Search 50,000 Arizona businesses by industry, size, and city."),
+    ("show_draft.jpg", "2 · Draft", "AI writes your introduction. Code checks every claim."),
+    ("show_approve.jpg", "3 · Approve", "You read, sign, and send. Nothing leaves without you."),
+)
 
 
 def _blend(top: str, alpha: float, under: str) -> str:
@@ -45,65 +55,67 @@ def _blend(top: str, alpha: float, under: str) -> str:
     return "#" + "".join(f"{value:02X}" for value in mixed)
 
 
-HERO_WORST = _blend(SLATE, OVERLAY_MIN, WHITE)
+HERO_WORST = _blend(BG, OVERLAY_MIN, WHITE)
 
 # Text on a surface. Each pair is checked for a contrast ratio of at least 4.5.
 PAIRS = (
-    ("page", SLATE, WHITE),
+    ("page", SLATE, BG),
     ("canvas", SLATE, SKY),
     ("topbar", WHITE, BAR),
     ("hero_title", WHITE, HERO_WORST),
     ("hero_subtitle", WHITE, HERO_WORST),
     ("banner_start", WHITE, HERO_FROM),
     ("banner_end", WHITE, HERO_TO),
-    ("heading", BLUE, WHITE),
-    ("heading_on_panel", BLUE, SKY),
+    ("heading", BLUE_TEXT, BG),
+    ("heading_on_panel", BLUE_TEXT, SKY),
     ("step_current", WHITE, BLUE),
-    ("step_done", SLATE, GREEN),
-    ("step_ready", SLATE, WHITE),
-    ("step_locked", LOCKED, WHITE),
+    ("step_done", INK, GREEN),
+    ("step_ready", SLATE, SKY_DARK),
+    ("step_locked", LOCKED, SKY),
     ("primary", WHITE, BLUE),
     ("primary_hover", WHITE, BLUE_DARK),
     ("primary_disabled", WHITE, BLUE),
-    ("secondary", SLATE, SKY),
-    ("secondary_hover", SLATE, SKY_DARK),
+    ("secondary", SLATE, SKY_DARK),
+    ("secondary_hover", WHITE, VIOLET),
     ("secondary_disabled", LOCKED, SKY),
-    ("chip_wait", SLATE, AMBER),
-    ("chip_ok", SLATE, GREEN),
+    ("chip_wait", INK, AMBER),
+    ("chip_ok", INK, GREEN),
     ("chip_stop", WHITE, RED),
-    ("tile_found", BLUE, WHITE),
-    ("tile_shortlist", BAR, WHITE),
-    ("tile_waiting", AMBER_TEXT, WHITE),
-    ("tile_approved", GREEN_TEXT, WHITE),
-    ("tile_sent", SLATE, WHITE),
-    ("card_find", BLUE, WHITE),
-    ("card_shortlist", BAR, WHITE),
-    ("card_draft", BLUE_DARK, WHITE),
-    ("card_review", AMBER_TEXT, WHITE),
-    ("card_send", GREEN_TEXT, WHITE),
-    ("input", SLATE, WHITE),
-    ("muted", MUTED, WHITE),
-    ("table", SLATE, WHITE),
-    ("table_head", SLATE, SKY),
+    ("tile_found", CYAN, SKY),
+    ("tile_shortlist", BLUE_TEXT, SKY),
+    ("tile_waiting", AMBER_TEXT, SKY),
+    ("tile_approved", GREEN_TEXT, SKY),
+    ("tile_sent", VIOLET_TEXT, SKY),
+    ("card_find", CYAN, SKY),
+    ("card_shortlist", BLUE_TEXT, SKY),
+    ("card_draft", VIOLET_TEXT, SKY),
+    ("card_review", AMBER_TEXT, SKY),
+    ("card_send", GREEN_TEXT, SKY),
+    ("input", SLATE, SKY_DARK),
+    ("muted", MUTED, SKY),
+    ("table", SLATE, SKY),
+    ("table_head", SLATE, SKY_DARK),
     ("expander", SLATE, SKY),
+    ("showcase_title", WHITE, SKY),
+    ("showcase_text", MUTED, SKY),
 )
 
 # Icons and large marks need 3:1. These pairs are the colors the SVGs use.
 ICON_PAIRS = (
-    ("icon_done", WHITE, GREEN_TEXT),
+    ("icon_done", INK, GREEN),
     ("icon_current", WHITE, BLUE),
-    ("icon_locked", LOCKED, WHITE),
-    ("icon_ready", SLATE, WHITE),
-    ("wordmark_drop", WHITE, BAR),
+    ("icon_locked", LOCKED, BG),
+    ("icon_ready", SLATE, BG),
+    ("wordmark_drop", CYAN, BAR),
 )
 
-DROP = "M12 2 C12 2 5 10.2 5 15 a7 7 0 0 0 14 0 C19 10.2 12 2 12 2 Z"
+MARK = "M12 2 L21 7 V17 L12 22 L3 17 V7 Z"
 
 _ICONS = {
     "done": (
         '<svg class="tracker-icon" viewBox="0 0 24 24" aria-hidden="true">'
-        f'<circle cx="12" cy="12" r="10" fill="{GREEN_TEXT}"/>'
-        f'<path d="M7 12.5 l3 3 l7-7" fill="none" stroke="{WHITE}" stroke-width="2.2" '
+        f'<circle cx="12" cy="12" r="10" fill="{GREEN}"/>'
+        f'<path d="M7 12.5 l3 3 l7-7" fill="none" stroke="{INK}" stroke-width="2.2" '
         'stroke-linecap="round" stroke-linejoin="round"/></svg>'
     ),
     "current": (
@@ -124,65 +136,89 @@ _ICONS = {
 }
 
 _CSS = """
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"] {
+.stApp, [data-testid="stAppViewContainer"] {
+  background: radial-gradient(1200px 600px at 85% -10%, rgba(109, 63, 224, 0.25), transparent 60%),
+              radial-gradient(900px 500px at -10% 10%, rgba(34, 211, 238, 0.12), transparent 60%),
+              @BG@;
   color: @SLATE@;
   font-family: "Segoe UI", "Helvetica Neue", sans-serif;
 }
-[data-testid="stHeader"] { background: @BAR@; }
-[data-testid="stHeader"] *, [data-testid="stToolbar"] * {
-  color: @WHITE@ !important;
-  -webkit-text-fill-color: @WHITE@ !important;
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, @BAR@ 0%, @SKY@ 100%);
+  border-right: 1px solid @LINE@;
+  color: @SLATE@;
 }
-h1, h2, h3 { color: @BLUE@; letter-spacing: 0; }
+[data-testid="stSidebar"] * { color: @SLATE@; }
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stHeader"] *, [data-testid="stToolbar"] * {
+  color: @SLATE@ !important;
+  -webkit-text-fill-color: @SLATE@ !important;
+}
+h1, h2, h3 { color: @BLUE_TEXT@; letter-spacing: 0; }
+p, li, label, span { color: @SLATE@; }
+[data-testid="stCaptionContainer"], small { color: @MUTED@ !important; }
 [data-testid="stMain"] .block-container {
-  background: @SKY@;
+  background: transparent;
   padding: 3.75rem 2rem 2rem;
   max-width: 100%;
-}
-[data-testid="stSidebar"] {
-  background: @SKY@;
-  border-right: 1px solid @SKY_DARK@;
 }
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea,
 [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+[data-testid="stMultiSelect"] div[data-baseweb="select"] > div,
 [data-testid="stNumberInput"] input {
   color: @SLATE@ !important;
   -webkit-text-fill-color: @SLATE@ !important;
-  background: @WHITE@ !important;
+  background: @SKY_DARK@ !important;
+  border: 1px solid @LINE@ !important;
   border-radius: 10px;
+}
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+  color: @LOCKED@ !important;
+  -webkit-text-fill-color: @LOCKED@ !important;
+}
+div[data-baseweb="popover"] ul, div[data-baseweb="popover"] li {
+  background: @SKY_DARK@ !important;
+  color: @SLATE@ !important;
 }
 [data-testid="stMarkdownContainer"] table {
   width: 100%;
   border-collapse: collapse;
-  background: @WHITE@;
+  background: @SKY@;
   border-radius: 12px;
+  overflow: hidden;
 }
 [data-testid="stMarkdownContainer"] th {
-  background: @SKY@;
+  background: @SKY_DARK@;
   color: @SLATE@;
   text-align: left;
   padding: 0.55rem 0.7rem;
 }
 [data-testid="stMarkdownContainer"] td {
-  background: @WHITE@;
+  background: @SKY@;
   color: @SLATE@;
   padding: 0.55rem 0.7rem;
-  border-top: 1px solid @SKY@;
+  border-top: 1px solid @LINE@;
 }
+[data-testid="stDataFrame"] { border: 1px solid @LINE@; border-radius: 12px; }
+[data-testid="stAlert"] { background: @SKY_DARK@ !important; border: 1px solid @LINE@; border-radius: 12px; }
+[data-testid="stAlert"] * { color: @SLATE@ !important; }
 .stButton button[kind="primary"],
 .stButton button[data-testid="stBaseButton-primary"],
 .stButton button[kind="primary"]:disabled,
 .stButton button[data-testid="stBaseButton-primary"]:disabled {
-  background: @BLUE@ !important;
+  background: linear-gradient(90deg, @BLUE@ 0%, @BLUE_DARK@ 100%) !important;
   color: @WHITE@ !important;
   border: none !important;
   border-radius: 10px;
   opacity: 1 !important;
+  box-shadow: 0 0 18px rgba(59, 91, 219, 0.55);
 }
 .stButton button[kind="primary"]:hover:not(:disabled),
 .stButton button[data-testid="stBaseButton-primary"]:hover:not(:disabled) {
   background: @BLUE_DARK@ !important;
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.55);
 }
 .stButton button[kind="primary"] *,
 .stButton button[data-testid="stBaseButton-primary"] * {
@@ -191,14 +227,19 @@ h1, h2, h3 { color: @BLUE@; letter-spacing: 0; }
 }
 .stButton button[kind="secondary"],
 .stButton button[data-testid="stBaseButton-secondary"] {
-  background: @SKY@;
+  background: @SKY_DARK@;
   color: @SLATE@;
-  border: 1px solid @SKY_DARK@;
+  border: 1px solid @LINE@;
   border-radius: 10px;
 }
 .stButton button[kind="secondary"]:hover:not(:disabled),
 .stButton button[data-testid="stBaseButton-secondary"]:hover:not(:disabled) {
-  background: @SKY_DARK@;
+  background: @VIOLET@;
+  border-color: @VIOLET@;
+}
+.stButton button[kind="secondary"]:hover:not(:disabled) * {
+  color: @WHITE@ !important;
+  -webkit-text-fill-color: @WHITE@ !important;
 }
 .stButton button[kind="secondary"] *,
 .stButton button[data-testid="stBaseButton-secondary"] * {
@@ -216,8 +257,8 @@ h1, h2, h3 { color: @BLUE@; letter-spacing: 0; }
   -webkit-text-fill-color: @LOCKED@ !important;
 }
 div[data-testid="stExpander"] {
-  background: @WHITE@;
-  border: 1px solid @SKY_DARK@;
+  background: @SKY@;
+  border: 1px solid @LINE@;
   border-radius: 12px;
 }
 .topbar {
@@ -227,7 +268,8 @@ div[data-testid="stExpander"] {
   gap: 1rem;
   flex-wrap: wrap;
   background: @BAR@;
-  border-bottom: 4px solid @CYAN@;
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, @CYAN@, @BLUE@, @VIOLET@) 1;
   margin: -1rem -2rem 1rem;
   padding: 0.6rem 2rem;
 }
@@ -235,17 +277,18 @@ div[data-testid="stExpander"] {
   color: @WHITE@ !important;
   -webkit-text-fill-color: @WHITE@ !important;
 }
-.topbar .topbar-name { font-weight: 800; font-size: 1.15rem; }
+.topbar .topbar-name { font-weight: 800; font-size: 1.15rem; letter-spacing: 0.04em; }
 .topbar .topbar-line { font-size: 0.95rem; }
 .hero {
   position: relative;
   border-radius: 18px;
   overflow: hidden;
-  min-height: 220px;
+  min-height: 260px;
   margin-bottom: 1rem;
   background-size: cover;
   background-position: center;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  border: 1px solid @LINE@;
+  box-shadow: 0 0 40px rgba(59, 91, 219, 0.35);
 }
 .hero-fallback {
   background-image: linear-gradient(110deg, @HERO_FROM@ 0%, @HERO_TO@ 100%);
@@ -255,50 +298,72 @@ div[data-testid="stExpander"] {
 .hero-drops {
   position: absolute;
   right: 2rem;
-  top: 1rem;
-  width: 150px;
-  height: 190px;
-  opacity: 0.3;
+  top: 1.5rem;
+  width: 160px;
+  height: 180px;
+  opacity: 0.35;
 }
 .hero-overlay {
   position: relative;
-  min-height: 220px;
+  min-height: 260px;
   padding: 1.4rem 1.8rem;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  background: linear-gradient(90deg, rgba(15, 23, 42, @OVERLAY_MAX@) 0%, rgba(15, 23, 42, @OVERLAY_MIN@) 100%);
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(7, 11, 31, @OVERLAY_MAX@) 0%, rgba(7, 11, 31, @OVERLAY_MIN@) 70%);
 }
 .hero-overlay h1, .hero-overlay p, .hero-overlay .wordmark-text {
   color: @WHITE@ !important;
   -webkit-text-fill-color: @WHITE@ !important;
   margin: 0;
 }
-.hero-overlay h1 { font-size: 2.6rem; font-weight: 800; line-height: 1.1; }
-.hero-overlay p { margin-top: 0.4rem; font-size: 1.3rem; }
-.wordmark { display: flex; align-items: center; gap: 0.5rem; margin-bottom: auto; }
-.wordmark svg { width: 28px; height: 28px; }
-.wordmark-text { font-weight: 800; letter-spacing: 0.12em; font-size: 0.95rem; }
+.hero-overlay h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.1; text-shadow: 0 0 24px rgba(34, 211, 238, 0.45); }
+.hero-overlay p { margin-top: 0.5rem; font-size: 1.25rem; }
+.wordmark { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; }
+.wordmark svg { width: 26px; height: 26px; }
+.wordmark-text { font-weight: 800; letter-spacing: 0.18em; font-size: 0.9rem; }
+.showcase { display: flex; gap: 0.9rem; margin: 0 0 1rem; }
+.showcase-card {
+  flex: 1;
+  background: @SKY@;
+  border: 1px solid @LINE@;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 0 22px rgba(109, 63, 224, 0.22);
+}
+.showcase-card img { width: 100%; height: 150px; object-fit: cover; display: block; }
+.showcase-card .showcase-body { padding: 0.65rem 0.85rem 0.8rem; }
+.showcase-card .showcase-title {
+  display: block; font-weight: 800; font-size: 1.05rem;
+  color: @WHITE@ !important; -webkit-text-fill-color: @WHITE@ !important;
+}
+.showcase-card .showcase-text {
+  display: block; font-size: 0.9rem; margin-top: 0.2rem;
+  color: @MUTED@ !important; -webkit-text-fill-color: @MUTED@ !important;
+}
 .tiles { display: flex; gap: 0.7rem; margin: 0.2rem 0 0.9rem; }
 .tile {
   flex: 1;
-  background: @WHITE@;
-  border: 1px solid @SKY_DARK@;
+  background: @SKY@;
+  border: 1px solid @LINE@;
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .tile-value { display: block; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
-.tile-label { display: block; color: @MUTED@; font-size: 0.85rem; margin-top: 0.2rem; }
-.tile-found .tile-value { color: @BLUE@; }
-.tile-shortlist .tile-value { color: @BAR@; }
+.tile-label { display: block; color: @MUTED@ !important; font-size: 0.85rem; margin-top: 0.2rem; }
+.tile-found .tile-value { color: @CYAN@; }
+.tile-shortlist .tile-value { color: @BLUE_TEXT@; }
 .tile-waiting .tile-value { color: @AMBER_TEXT@; }
 .tile-approved .tile-value { color: @GREEN_TEXT@; }
-.tile-sent .tile-value { color: @SLATE@; }
+.tile-sent .tile-value { color: @VIOLET_TEXT@; }
 .tracker-icon { width: 22px; height: 22px; display: block; margin-bottom: 0.25rem; }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="current"]) button {
   background: @BLUE@ !important;
-  border-color: @BLUE@ !important;
+  border-color: @CYAN@ !important;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.5);
   opacity: 1 !important;
 }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="current"]) button,
@@ -314,13 +379,13 @@ div[data-testid="stColumn"]:has(span.tracker-state[data-state="done"]) button {
 }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="done"]) button,
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="done"]) button * {
-  color: @SLATE@ !important;
-  -webkit-text-fill-color: @SLATE@ !important;
+  color: @INK@ !important;
+  -webkit-text-fill-color: @INK@ !important;
   font-weight: 700 !important;
 }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="locked"]) button {
-  background: @WHITE@ !important;
-  border-color: @SKY_DARK@ !important;
+  background: @SKY@ !important;
+  border-color: @LINE@ !important;
   opacity: 1 !important;
 }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="locked"]) button,
@@ -330,7 +395,7 @@ div[data-testid="stColumn"]:has(span.tracker-state[data-state="locked"]) button 
   font-weight: 500 !important;
 }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="ready"]) button {
-  background: @WHITE@ !important;
+  background: @SKY_DARK@ !important;
   border-color: @LINE@ !important;
 }
 div[data-testid="stColumn"]:has(span.tracker-state[data-state="ready"]) button,
@@ -340,30 +405,29 @@ div[data-testid="stColumn"]:has(span.tracker-state[data-state="ready"]) button *
   font-weight: 600 !important;
 }
 .step-card {
-  background: @WHITE@;
-  border: 1px solid @SKY_DARK@;
-  border-top: 6px solid @BLUE@;
+  background: @SKY@;
+  border: 1px solid @LINE@;
+  border-left: 5px solid @CYAN@;
   border-radius: 14px;
   padding: 0.65rem 1rem;
   margin-bottom: 0.7rem;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 .step-card p { margin: 0; font-weight: 800; font-size: 1.15rem; }
-.step-card-search { border-top-color: @BLUE@; }
-.step-card-search p { color: @BLUE@ !important; -webkit-text-fill-color: @BLUE@ !important; }
-.step-card-shortlist { border-top-color: @CYAN@; }
-.step-card-shortlist p { color: @BAR@ !important; -webkit-text-fill-color: @BAR@ !important; }
-.step-card-run { border-top-color: @BLUE_DARK@; }
-.step-card-run p { color: @BLUE_DARK@ !important; -webkit-text-fill-color: @BLUE_DARK@ !important; }
-.step-card-review { border-top-color: @AMBER@; }
+.step-card-search { border-left-color: @CYAN@; }
+.step-card-search p { color: @CYAN@ !important; -webkit-text-fill-color: @CYAN@ !important; }
+.step-card-shortlist { border-left-color: @BLUE@; }
+.step-card-shortlist p { color: @BLUE_TEXT@ !important; -webkit-text-fill-color: @BLUE_TEXT@ !important; }
+.step-card-run { border-left-color: @VIOLET@; }
+.step-card-run p { color: @VIOLET_TEXT@ !important; -webkit-text-fill-color: @VIOLET_TEXT@ !important; }
+.step-card-review { border-left-color: @AMBER@; }
 .step-card-review p { color: @AMBER_TEXT@ !important; -webkit-text-fill-color: @AMBER_TEXT@ !important; }
-.step-card-outbox { border-top-color: @GREEN@; }
+.step-card-outbox { border-left-color: @GREEN@; }
 .step-card-outbox p { color: @GREEN_TEXT@ !important; -webkit-text-fill-color: @GREEN_TEXT@ !important; }
 .badge-wait, .badge-warn {
   display: inline-block;
   background: @AMBER@;
-  color: @SLATE@ !important;
-  -webkit-text-fill-color: @SLATE@ !important;
+  color: @INK@ !important;
+  -webkit-text-fill-color: @INK@ !important;
   border-radius: 999px;
   padding: 0.35rem 0.8rem;
   font-weight: 700;
@@ -371,8 +435,8 @@ div[data-testid="stColumn"]:has(span.tracker-state[data-state="ready"]) button *
 .badge-ok {
   display: inline-block;
   background: @GREEN@;
-  color: @SLATE@ !important;
-  -webkit-text-fill-color: @SLATE@ !important;
+  color: @INK@ !important;
+  -webkit-text-fill-color: @INK@ !important;
   border-radius: 999px;
   padding: 0.35rem 0.8rem;
   font-weight: 700;
@@ -386,11 +450,12 @@ div[data-testid="stColumn"]:has(span.tracker-state[data-state="ready"]) button *
   padding: 0.35rem 0.8rem;
   font-weight: 700;
 }
-.model-note { color: @MUTED@; font-size: 0.9rem; }
+.model-note { color: @MUTED@ !important; font-size: 0.9rem; }
 """
 
 _VALUES = {
-    "SLATE": SLATE, "BAR": BAR, "WHITE": WHITE, "BLUE": BLUE, "BLUE_DARK": BLUE_DARK,
+    "BG": BG, "SLATE": SLATE, "BAR": BAR, "WHITE": WHITE, "BLUE": BLUE, "BLUE_DARK": BLUE_DARK,
+    "BLUE_TEXT": BLUE_TEXT, "VIOLET": VIOLET, "VIOLET_TEXT": VIOLET_TEXT, "INK": INK,
     "SKY": SKY, "SKY_DARK": SKY_DARK, "MUTED": MUTED, "LOCKED": LOCKED, "LINE": LINE,
     "GREEN": GREEN, "GREEN_TEXT": GREEN_TEXT, "AMBER": AMBER, "AMBER_TEXT": AMBER_TEXT,
     "RED": RED, "CYAN": CYAN, "HERO_FROM": HERO_FROM, "HERO_TO": HERO_TO,
@@ -400,13 +465,13 @@ _VALUES = {
 
 def _css() -> str:
     text = _CSS
-    for name, value in _VALUES.items():
+    for name, value in sorted(_VALUES.items(), key=lambda item: -len(item[0])):
         text = text.replace(f"@{name}@", value)
     return text
 
 
 def icon(name: str) -> str:
-    """Inline SVG. The page does not fetch a font or an image."""
+    """Inline SVG. The page does not fetch a font."""
     return _ICONS[name]
 
 
@@ -418,12 +483,12 @@ def contrast_ratio(foreground: str, background: str) -> float:
 
 
 def build_hero_image(root: Path | None = None) -> Path | None:
-    """Shrink the owner's photo to a web copy under 150 KB. None when there is no photo."""
+    """Shrink the banner to a web copy under 150 KB. None when there is no source image."""
     base = Path(root) if root is not None else repo_root()
     source = base / HERO_SOURCE
     target = base / HERO_WEB
     if not source.is_file():
-        return None
+        return target if target.is_file() and target.stat().st_size <= HERO_MAX_BYTES and root is None else None
     if target.is_file() and target.stat().st_mtime >= source.stat().st_mtime:
         if target.stat().st_size <= HERO_MAX_BYTES:
             return target
@@ -450,32 +515,49 @@ def build_hero_image(root: Path | None = None) -> Path | None:
 
 
 @st.cache_resource(show_spinner=False)
-def _hero_uri(stamp: float) -> str:
-    path = build_hero_image()
-    if path is None:
+def _file_uri(path_text: str, stamp: float) -> str:
+    path = Path(path_text)
+    if not path.is_file():
         return ""
     return "data:image/jpeg;base64," + base64.b64encode(path.read_bytes()).decode("ascii")
 
 
 def hero_uri() -> str:
-    source = repo_root() / HERO_SOURCE
-    stamp = source.stat().st_mtime if source.is_file() else 0.0
-    return _hero_uri(stamp) if stamp else ""
+    path = build_hero_image()
+    if path is None:
+        return ""
+    return _file_uri(str(path), path.stat().st_mtime)
 
 
-def wordmark() -> str:
+def showcase_html() -> str:
+    """Three image cards under the hero, shown on the Find step. Empty when images are missing."""
+    cards = []
+    for name, title, text in SHOWCASE:
+        path = repo_root() / "assets" / name
+        if not path.is_file():
+            return ""
+        uri = _file_uri(str(path), path.stat().st_mtime)
+        cards.append(
+            f'<div class="showcase-card"><img src="{uri}" alt=""/>'
+            f'<div class="showcase-body"><span class="showcase-title">{title}</span>'
+            f'<span class="showcase-text">{text}</span></div></div>'
+        )
+    return '<div class="showcase">' + "".join(cards) + "</div>"
+
+
+def wordmark(display_name: str) -> str:
     return (
         '<div class="wordmark">'
         '<svg viewBox="0 0 24 24" aria-hidden="true">'
-        f'<path d="{DROP}" fill="{WHITE}"/>'
-        f'<path d="M9 15 a3 3 0 0 0 3 3" fill="none" stroke="{BAR}" stroke-width="1.6" stroke-linecap="round"/>'
+        f'<path d="{MARK}" fill="none" stroke="{CYAN}" stroke-width="1.8" stroke-linejoin="round"/>'
+        f'<circle cx="12" cy="12" r="3.2" fill="{CYAN}"/>'
         "</svg>"
-        '<span class="wordmark-text">ACME PLUMBING</span></div>'
+        f'<span class="wordmark-text">{display_name.upper()}</span></div>'
     )
 
 
 def header_html(brand, display_name: str, uri: str | None = None) -> str:
-    """Top bar and hero. Words come from the profile. A missing photo gives a gradient."""
+    """Top bar and hero. Words come from the profile. A missing banner gives a gradient."""
     uri = hero_uri() if uri is None else uri
     title = brand.hero_title or display_name
     bar = (
@@ -491,18 +573,23 @@ def header_html(brand, display_name: str, uri: str | None = None) -> str:
         css = ""
         kind = "hero hero-fallback"
         drops = (
-            '<svg class="hero-drops" viewBox="0 0 48 60" aria-hidden="true">'
-            f'<path d="M24 2 C24 2 4 24 4 38 a20 20 0 0 0 40 0 C44 24 24 2 24 2 Z" fill="{WHITE}"/></svg>'
+            '<svg class="hero-drops" viewBox="0 0 24 24" aria-hidden="true">'
+            f'<path d="{MARK}" fill="none" stroke="{CYAN}" stroke-width="1.2"/></svg>'
         )
     hero = (
-        f'<div class="{kind}">{drops}<div class="hero-overlay">{wordmark()}'
+        f'<div class="{kind}">{drops}<div class="hero-overlay">{wordmark(display_name)}'
         f"<h1>{title}</h1><p>{brand.hero_subtitle}</p></div></div>"
     )
-    return css + bar + hero
+    try:
+        on_find = st.session_state.get("step", "search") == "search"
+    except Exception:
+        on_find = False
+    show = showcase_html() if on_find and uri else ""
+    return css + bar + hero + show
 
 
 def apply_theme() -> str:
-    """Inject the Acme theme and return the CSS."""
+    """Inject the theme and return the CSS."""
     css = _css()
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
     return css

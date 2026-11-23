@@ -1,5 +1,7 @@
 """Load a domain profile and the shared pipeline config."""
 
+import json
+import os
 import re
 from pathlib import Path
 
@@ -35,7 +37,55 @@ def load_profile(profile_id: str, path: Path | None = None) -> Profile:
     _check_subject_tokens(profile)
     _check_note_checks(profile)
     _check_approved_text(profile)
+    if path is None:
+        profile = apply_sender(profile)
     return profile
+
+
+SENDER_FIELDS = ("name", "company", "postal_address", "phone")
+
+
+def sender_path() -> Path:
+    raw = os.environ.get("LEADGEN_DATA_ROOT", "").strip()
+    base = Path(raw) if raw else repo_root()
+    return base / "runs" / "sender.json"
+
+
+def load_sender() -> dict[str, str]:
+    path = sender_path()
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {key: str(data.get(key) or "").strip() for key in SENDER_FIELDS}
+
+
+def save_sender(values: dict[str, str]) -> None:
+    path = sender_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    clean = {key: str(values.get(key) or "").strip()[:200] for key in SENDER_FIELDS}
+    path.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+
+
+def apply_sender(profile: Profile) -> Profile:
+    """The person's own name and details, saved in Settings, replace the placeholders."""
+    saved = load_sender()
+    filled = {key: value for key, value in saved.items() if value}
+    if not filled:
+        return profile
+    sender = profile.sender.model_copy(
+        update={
+            **filled,
+            "placeholder_fields": [
+                field for field in profile.sender.placeholder_fields if field not in filled
+            ],
+        }
+    )
+    return profile.model_copy(update={"sender": sender})
 
 
 def load_pipeline_config(path: Path | None = None) -> PipelineConfig:
