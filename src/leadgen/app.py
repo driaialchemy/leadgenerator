@@ -6,9 +6,11 @@ import os
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from leadgen.approve import decide, latest_run
 from leadgen.check_keys import main as check_keys_main
+from leadgen.cloud import SHARED_NOTE, is_cloud, load_streamlit_secrets, mailto_url, prepare_cloud
 from leadgen.paths import repo_root
 from leadgen.guide import HOW_IT_WORKS, TOPICS
 from leadgen.reset import clear_everything
@@ -51,7 +53,7 @@ from leadgen.ui_data import (
     summary_tiles,
     tier_label,
 )
-from leadgen.ui_theme import apply_theme, header_html, icon
+from leadgen.ui_theme import apply_theme, copy_button_html, header_html, icon
 
 STEPS = (
     "search",
@@ -101,8 +103,10 @@ def _screen_error(exc: Exception) -> None:
 def _page() -> None:
     st.set_page_config(page_title=load_profile(profile_ids()[0]).display_name, layout="wide")
     apply_theme()
+    load_streamlit_secrets()
     _init_state()
     root = data_root()
+    prepare_cloud(root)
     killed = kill_message(root)
     profile_id = _sidebar(killed)
     _consume_adds(root, profile_id)
@@ -361,6 +365,8 @@ def _panel(name: str):
 def _search_tab(root: Path, profile_id: str, killed: str) -> None:
     st.markdown('<div class="step-card step-card-search"><p>1 · Find</p></div>', unsafe_allow_html=True)
     st.header("Find")
+    if is_cloud():
+        st.caption(SHARED_NOTE)
     profile = load_profile(profile_id)
     st.text_input(
         "Your occupation or service field",
@@ -1101,9 +1107,12 @@ def _selected_run(root: Path) -> Path | None:
 def _outbox_tab(root: Path, killed: str) -> None:
     st.markdown('<div class="step-card step-card-outbox"><p>5 · Send</p></div>', unsafe_allow_html=True)
     st.header("Send")
-    st.markdown(
-        "Practice saves a file. Gmail and Outlook can save a draft or send the approved note."
-    )
+    if is_cloud():
+        st.markdown("Copy the approved note, or open it in your own email app and send it from there.")
+    else:
+        st.markdown(
+            "Practice saves a file. Gmail and Outlook can save a draft or send the approved note."
+        )
     rows = outbox_rows(root)
     if not rows:
         st.info("No emails yet. Approve a note on Review and it will show up here.")
@@ -1114,6 +1123,10 @@ def _outbox_tab(root: Path, killed: str) -> None:
         st.markdown(f'<span class="badge-ok">Approved by {who}</span>', unsafe_allow_html=True)
         st.code(row["text"])
     run_dir = _send_run(root)
+    if is_cloud():
+        _cloud_send(run_dir)
+        st.button("Find another", key="find_another", on_click=_go, args=("search",), type=_kind("outbox", True))
+        return
     st.radio("Where", ["Practice", "Gmail", "Outlook"], key="mail_destination")
     st.radio("What to do", ["Save as draft", "Send now"], key="mail_action")
     _mail_actions(root, run_dir, killed)
@@ -1126,6 +1139,27 @@ def _outbox_tab(root: Path, killed: str) -> None:
     if result.get("reconnect"):
         st.button("Reconnect", key="reconnect_mail", on_click=_reconnect)
     st.button("Find another", key="find_another", on_click=_go, args=("search",), type=_kind("outbox", True))
+
+
+def _cloud_send(run_dir: Path | None) -> None:
+    """On Cloud nothing is sent from the server. The person copies the note or opens their own email app."""
+    if run_dir is None:
+        return
+    from leadgen.mail import _split
+
+    rendered = rendered_text(run_dir)
+    subject, body = _split(rendered)
+    email = ""
+    prospect = run_dir / "prospect.json"
+    if prospect.is_file():
+        email = str(json.loads(prospect.read_text(encoding="utf-8")).get("email") or "").strip()
+    if not email:
+        st.info(NO_EMAIL)
+    left, right = st.columns(2)
+    with left:
+        components.html(copy_button_html(f"Subject: {subject}\n\n{body}".strip()), height=48)
+    with right:
+        st.link_button("Open in my email app", mailto_url(email, subject, body), key="open_mailto")
 
 
 def _mail_actions(root: Path, run_dir: Path | None, killed: str) -> None:
@@ -1332,6 +1366,9 @@ def _settings_tab(root: Path) -> None:
     for row in role_rows():
         provider = providers.get(row["provider"], row["provider"])
         st.markdown(f"{labels.get(row['role'], 'Step')}: {provider}, {row['model']}")
+    if is_cloud():
+        st.caption("Gmail and Outlook are off on the shared copy. Approved notes are copied or opened in your own email app.")
+        return
     st.checkbox(
         "Allowlist only",
         key="demo_safety",

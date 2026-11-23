@@ -30,6 +30,13 @@ GREEN_TEXT = "#4ADE80"
 AMBER = "#F5B942"  # findings
 AMBER_TEXT = "#FBBF24"
 RED = "#C53030"  # blocked only
+def copy_button_html(text: str) -> str:
+    """The Cloud-only Copy email button, drawn in the page palette."""
+    from leadgen.cloud import clipboard_html
+
+    return clipboard_html(text, BLUE, SKY, SLATE, MUTED)
+
+
 HERO_FROM = "#0B1440"
 HERO_TO = "#2A1060"
 

@@ -9,6 +9,8 @@ def offline_env(monkeypatch, tmp_path):
     env_file.write_text("LEADGEN_LLM_MODE=offline\n", encoding="utf-8")
     monkeypatch.setenv("LEADGEN_ENV_FILE", str(env_file))
     monkeypatch.setenv("LEADGEN_LLM_MODE", "offline")
+    monkeypatch.setenv("LEADGEN_SKIP_SECRETS", "1")
+    monkeypatch.setenv("LEADGEN_CLOUD", "0")
     monkeypatch.delenv("LEADGEN_DEMO_TEMPT", raising=False)
     for name in (
         "GOOGLE_API_KEY",

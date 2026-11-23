@@ -91,7 +91,13 @@ def candidate_env_files() -> list[Path]:
 def load_project_env(
     candidates: list[Path] | None = None, override: bool = False
 ) -> Path | None:
-    """Load the first env file that exists. Return that path, or None."""
+    """Fill unset settings from Streamlit secrets, then the first env file that exists.
+
+    A variable already in the environment is never replaced. Returns the env file path, or None.
+    """
+    from leadgen.cloud import load_streamlit_secrets
+
+    load_streamlit_secrets()
     for path in candidates if candidates is not None else candidate_env_files():
         if path.is_file():
             load_dotenv(path, override=override)
